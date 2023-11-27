@@ -48,13 +48,15 @@ void timer_loop();
 void menu_init(uint8_t n_items, char const * const* labels);
 void menu_loop();
 void menu_draw();
+void number_entry_init(int target_idx);
+void number_entry_loop();
+
 static __FlashStringHelper const* toFSH(char const* progmem_ptr);
 
 unsigned long last_draw_time = 0;
 
+// What function we call in our loop.  This changes with the state.
 void (*loop_function)();
-
-byte selectedNameIdx;
 
 struct MenuState
 {
@@ -65,19 +67,13 @@ struct MenuState
 };
 MenuState menuState;
 
-const byte names_n_items = 9;
-const char names_0[] PROGMEM =     "Matthew";
-const char names_1[] PROGMEM =     "Mark";
-const char names_2[] PROGMEM =     "Luke";
-const char names_3[] PROGMEM =     "John";
-const char names_4[] PROGMEM =     "Peter";
-const char names_5[] PROGMEM =     "Paul";
-const char names_6[] PROGMEM =     "John";
-const char names_7[] PROGMEM =     "George";
-const char names_8[] PROGMEM =     "Ringo";
+const byte names_n_items = 3;
+const char names_0[] PROGMEM =     "Set On Time";
+const char names_1[] PROGMEM =     "Set Off Time";
+const char names_2[] PROGMEM =     "Exit";
 const char *const names_labels[] PROGMEM =
 {
-    names_0, names_1, names_2, names_3, names_4, names_5, names_6, names_7, names_8,
+    names_0, names_1, names_2,
 };
 
 void setup()
@@ -86,7 +82,6 @@ void setup()
     digitalWrite(LED_BUILTIN, HIGH);           // Turn the LED on.
 
     Wire.begin( );                // GDY200622
-
     Serial.begin(9600);
 
     // set up the LCD's number of columns and rows:
@@ -101,10 +96,7 @@ void setup()
 
     while (!Serial) { /*wait*/ }
 
-    selectedNameIdx = 0;
-
     timer_init();
-
     monitor_init();
 
     Serial.print(F("Boot "));
@@ -117,12 +109,7 @@ void loop()
 {
     loop_function();
 
-    // unsigned long now = millis();
-    // if (now - last_time < 10)
-    // {
-    //     delay(now - last_time);
-    // }
-    // last_time = now;
+    // Update the timer. Do this in all states.
     timer_loop();
 }
 
@@ -132,25 +119,6 @@ void monitor_init()
     last_draw_time = millis() - 0x7FFFFFFF;
 
     monitor_draw();
-
-    // lcd.setCursor(0, 0);
-    // lcd.print(F("\xDF Menu   ^ LED"));
-    // lcd.setCursor(0, 1);
-    // lcd.print(F("LED:"));
-    // lcd.setCursor(0, 2);
-    // lcd.print(F("Selection:"));
-    // lcd.setCursor(0, 3);
-    // // lcd.print(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
-
-    // Serial.print(F("monitor_init "));
-    // Serial.print(strlen_P(pgm_read_ptr(names_labels + selectedNameIdx)));
-    // Serial.print(' ');
-    // Serial.println(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
-
-    //         12345678901234567890
-    // Clear end of line
-    // for (uint8_t i = strlen_P(names_labels[selectedNameIdx]); i < LCD_N_COLS - 1; ++i)
-    //     lcd.print(' ');
 }
 
 void monitor_loop()
@@ -277,8 +245,7 @@ void menu_loop()
     }
     else if (customKey == '*') { // Select
 
-        selectedNameIdx = menuState.cursor_row;
-        monitor_init();
+        menu_select(menuState.cursor_row);
         // Skip updating the LCD
         return;
     }
@@ -308,6 +275,81 @@ void menu_draw()
         // Clear end of line
         for (uint8_t i = n; i < LCD_N_COLS - 1; ++i)
             lcd.print(' ');
+    }
+}
+
+void menu_select(uint8_t menu_idx)
+{
+    if (menu_idx == 0 || menu_idx == 1)
+    {
+        // Set on/off time
+        number_entry_init(menu_idx);
+    }
+    else
+    {
+        // Back to monitor screen
+        monitor_init();
+    }
+}
+
+uint8_t g_number_entry_state;
+uint8_t g_number_entry_column;
+char g_number_entry_string[21];
+
+void number_entry_init(int target_idx)
+{
+    loop_function = number_entry_loop;
+    g_number_entry_state = target_idx;
+    g_number_entry_column = 0;
+    lcd.clear();
+    lcd.print(F("Enter Time:"));
+    lcd.setCursor(0, 1);
+    lcd.cursor();
+    lcd.blink();
+
+    memset(g_number_entry_string, '\0', sizeof(g_number_entry_string));
+}
+
+void number_entry_loop()
+{
+    char const customKey = customKeypad.getKey();
+    if (customKey == NO_KEY)
+    {
+        return;
+    }
+
+    if ('0' <= customKey && customKey <= '9' )
+    {
+        lcd.print(customKey);
+        g_number_entry_string[g_number_entry_column] = customKey;
+        g_number_entry_column = (1 + g_number_entry_column) % 20;
+    }
+    else if (customKey == 'B')
+    {
+        if (g_number_entry_column > 0)
+        {
+            lcd.print(' ');
+            --g_number_entry_column;
+            lcd.setCursor(g_number_entry_column, 1);
+        }
+    }
+    else if (customKey == 'C')
+    {
+        // Don't allow to skip over a blank character
+        if (g_number_entry_string[g_number_entry_column])
+        {
+            g_number_entry_column = (1 + g_number_entry_column) % 20;
+            lcd.setCursor(g_number_entry_column, 1);
+        }
+    }
+    else if (customKey == '*')
+    {
+        Serial.print(F("Number entry: "));
+        Serial.println(g_number_entry_string);
+        // Back to monitor screen
+        lcd.noBlink();
+        lcd.noCursor();
+        monitor_init();
     }
 }
 
