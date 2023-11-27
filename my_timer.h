@@ -15,3 +15,7 @@ void timer_init();
 void timer_loop();
 
 unsigned long timer_get_duration();
+
+unsigned long timer_get_duration(uint8_t idx);
+
+void timer_set_duration(uint8_t idx, unsigned long duration_ms);

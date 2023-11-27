@@ -10,8 +10,8 @@ struct SwitchDetails
 
 SwitchDetails switch_details[2] =
 {
-    { .duration = 10ul * 1000, },
-    { .duration = 2ul*24*60*60 * 1000, },
+    { .duration = 2ul*24*60*60 * 1000, },   // Switch Off
+    { .duration = 10ul * 1000, },           // Switch On
 };
 
 constexpr uint8_t relay_pin_first = 4;
@@ -64,6 +64,16 @@ void timer_loop()
 unsigned long timer_get_duration()
 {
     return switch_details[g_switch_state].duration;
+}
+
+unsigned long timer_get_duration(uint8_t idx)
+{
+    return switch_details[idx].duration;
+}
+
+void timer_set_duration(uint8_t idx, unsigned long duration_ms)
+{
+    switch_details[idx].duration = duration_ms;
 }
 
 void print_hms_time(Print& target, unsigned long milliseconds)
