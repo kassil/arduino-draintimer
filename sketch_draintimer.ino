@@ -1,14 +1,8 @@
-/*
- Demonstrates the use of a 16x2 LCD display.
- 
- Demonstrates polling debounced buttons
-
- Demonstrates a menu
-*/
-
 #define LCD_I2C
 
-// include the library code:
+#include "drain_timer.h"
+#include "my_timer.h"
+
 #include <Arduino.h>
 #include <Keypad_I2C.h>
 #include <Keypad.h>        // GDY120705
@@ -26,7 +20,7 @@ constexpr uint8_t KPD_SLAVE = 0x20;
 // 20   NXP    Lo Lo Lo
 
 constexpr byte KPD_ROWS = 4; // Dimensions of matrix
-constexpr byte KPD_COLS = 4; // 
+constexpr byte KPD_COLS = 4; //
 //define the cymbols on the buttons of the keypads
 char hexaKeys[KPD_ROWS][KPD_COLS] = {
   {'1','2','3','A'},
@@ -36,10 +30,8 @@ char hexaKeys[KPD_ROWS][KPD_COLS] = {
 };
 byte rowPins[KPD_ROWS] = {0, 1, 2, 3}; //connect to the row pinouts of the keypad
 byte colPins[KPD_COLS] = {4, 5, 6, 7}; //connect to the column pinouts of the keypad
-Keypad_I2C customKeypad( makeKeymap(hexaKeys), rowPins, colPins, KPD_ROWS, KPD_COLS, KPD_SLAVE); 
+Keypad_I2C customKeypad( makeKeymap(hexaKeys), rowPins, colPins, KPD_ROWS, KPD_COLS, KPD_SLAVE);
 
-constexpr uint8_t LCD_N_ROWS = 4;
-constexpr uint8_t LCD_N_COLS = 20;
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
 #ifdef LCD_I2C
@@ -52,12 +44,13 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 void monitor_init();
 void monitor_loop();
+void timer_loop();
 void menu_init(uint8_t n_items, char const * const* labels);
 void menu_loop();
 void menu_draw();
 static __FlashStringHelper const* toFSH(char const* progmem_ptr);
 
-unsigned long last_time = 0;
+unsigned long last_draw_time = 0;
 
 void (*loop_function)();
 
@@ -106,11 +99,17 @@ void setup()
 
     customKeypad.begin( );        // GDY120705
 
-    selectedNameIdx = 0;
-    monitor_init(); 
+    while (!Serial) { /*wait*/ }
 
-    while( !Serial ){ /*wait*/ }
-    Serial.println(F("Hello, world!"));
+    selectedNameIdx = 0;
+
+    timer_init();
+
+    monitor_init();
+
+    Serial.print(F("Boot "));
+    Serial.print(switch_millis);
+    Serial.println(F(" ms"));
     digitalWrite(LED_BUILTIN, LOW);           // Turn the LED off.
 }
 
@@ -118,32 +117,35 @@ void loop()
 {
     loop_function();
 
-    unsigned long now = millis();
-    if (now - last_time < 10)
-    {
-        delay(now - last_time);
-    }
-    last_time = now;
+    // unsigned long now = millis();
+    // if (now - last_time < 10)
+    // {
+    //     delay(now - last_time);
+    // }
+    // last_time = now;
+    timer_loop();
 }
 
 void monitor_init()
 {
     loop_function = monitor_loop;
+    last_draw_time = millis() - 0x7FFFFFFF;
 
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(F("\xDF Menu   ^ LED"));
-    lcd.setCursor(0, 1);
-    lcd.print(F("LED:"));
-    lcd.setCursor(0, 2);
-    lcd.print(F("Selection:"));
-    lcd.setCursor(0, 3);
-    lcd.print(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
+    monitor_draw();
 
-    Serial.print(F("monitor_init "));
-    Serial.print(strlen_P(pgm_read_ptr(names_labels + selectedNameIdx)));
-    Serial.print(' ');
-    Serial.println(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
+    // lcd.setCursor(0, 0);
+    // lcd.print(F("\xDF Menu   ^ LED"));
+    // lcd.setCursor(0, 1);
+    // lcd.print(F("LED:"));
+    // lcd.setCursor(0, 2);
+    // lcd.print(F("Selection:"));
+    // lcd.setCursor(0, 3);
+    // // lcd.print(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
+
+    // Serial.print(F("monitor_init "));
+    // Serial.print(strlen_P(pgm_read_ptr(names_labels + selectedNameIdx)));
+    // Serial.print(' ');
+    // Serial.println(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
 
     //         12345678901234567890
     // Clear end of line
@@ -154,20 +156,72 @@ void monitor_init()
 void monitor_loop()
 {
     char const customKey = customKeypad.getKey();
-    if (customKey != NO_KEY){
+    if (customKey != NO_KEY)
+    {
         Serial.println(customKey);
     }
 
-    if (customKey == '*') {
+    if (customKey == '*')
+    {
         menu_init(names_n_items, names_labels);
+        return;
     }
-    else if (customKey == 'A') {
+    else if (customKey == 'A')
+    {
         // Toggle LED
         uint8_t ledState = !digitalRead(LED_BUILTIN);
         digitalWrite(LED_BUILTIN, ledState);
         lcd.setCursor(17,1);
         lcd.print(ledState ? F("On ") : F("Off"));
     }
+
+    bool update_time_display = false;
+    auto now = millis();
+    auto elapsed = now - switch_millis;
+    if (elapsed - last_draw_time > 1000) //time_update_millis/1000 < elapsed / 1000)
+    {
+        update_time_display = true;
+        last_draw_time = elapsed - (elapsed % 1000);
+    }
+
+    if (update_time_display || g_update_state)
+    {
+        if (g_update_state)
+        {
+            g_update_state = false;
+            lcd.setCursor(0, 0);
+            lcd.print(g_switch_state ? F("On ") : F("Off"));
+        }
+
+        if (update_time_display)
+        {
+            Serial.print(now);
+            Serial.print(F("\tlast draw "));
+            Serial.print(last_draw_time);
+            Serial.print(F("\telapsed "));
+            Serial.print(elapsed);
+            // Serial.print(F("\tdur "));
+            // Serial.print(switch_details[g_switch_state].duration);
+            Serial.print(F(" next "));
+            Serial.print(last_draw_time + 1000);
+            Serial.println();
+        }
+
+        lcd.setCursor(LCD_N_COLS - 8 - 4, 0);
+        print_hms_time(lcd, elapsed);
+    }
+}
+
+void monitor_draw()
+{
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(g_switch_state ? F("On ") : F("Off"));
+    lcd.setCursor(0, 1);
+    lcd.print(F("LED:"));
+    // lcd.setCursor(0, 2);
+    // lcd.setCursor(0, 3);
+    // lcd.print(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
 }
 
 void menu_init(uint8_t n_items, char const * const* labels)
@@ -230,7 +284,7 @@ void menu_loop()
         return;
     }
     else {
-    
+
         // Skip updating the LCD
         return;
     }
