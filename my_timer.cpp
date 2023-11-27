@@ -46,14 +46,10 @@ void timer_loop()
         // Don't accumulate latency
         switch_millis += switch_details[g_switch_state].duration;
         g_switch_state = g_switch_state ? 0 : 1;
-
         g_update_state = true;
 
         digitalWrite(relay_pin_first, g_switch_state ? HIGH : LOW);
-    }
 
-    if (g_update_state)
-    {
         Serial.print(now);
         Serial.print(F("\tswitch_millis "));
         Serial.print(switch_millis);
