@@ -10,8 +10,8 @@ struct SwitchDetails
 
 SwitchDetails switch_details[2] =
 {
-    { .duration = 4000, },
-    { .duration = 3000, },
+    { .duration = 10ul * 1000, },
+    { .duration = 2ul*24*60*60 * 1000, },
 };
 
 constexpr uint8_t relay_pin_first = 4;
@@ -63,6 +63,11 @@ void timer_loop()
         Serial.print(switch_millis + switch_details[g_switch_state].duration);
         Serial.println();
     }
+}
+
+unsigned long timer_get_duration()
+{
+    return switch_details[g_switch_state].duration;
 }
 
 void print_hms_time(Print& target, unsigned long milliseconds)

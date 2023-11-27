@@ -13,3 +13,5 @@ extern uint8_t g_switch_state;
 void timer_init();
 
 void timer_loop();
+
+unsigned long timer_get_duration();

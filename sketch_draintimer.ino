@@ -200,15 +200,14 @@ void monitor_loop()
             Serial.print(last_draw_time);
             Serial.print(F("\telapsed "));
             Serial.print(elapsed);
-            // Serial.print(F("\tdur "));
-            // Serial.print(switch_details[g_switch_state].duration);
             Serial.print(F(" next "));
             Serial.print(last_draw_time + 1000);
             Serial.println();
         }
 
+        // Display count down time
         lcd.setCursor(LCD_N_COLS - 8 - 4, 0);
-        print_hms_time(lcd, elapsed);
+        print_hms_time(lcd, timer_get_duration() - elapsed);
     }
 }
 
