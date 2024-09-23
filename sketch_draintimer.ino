@@ -5,7 +5,7 @@
 
 #include <Arduino.h>
 #include <Keypad_I2C.h>
-#include <Keypad.h>        // GDY120705
+#include <Keypad.h> // GDY120705
 #ifdef LCD_I2C
 #include <LiquidCrystal_I2C.h>
 #else
@@ -21,16 +21,15 @@ constexpr uint8_t KPD_SLAVE = 0x20;
 
 constexpr byte KPD_ROWS = 4; // Dimensions of matrix
 constexpr byte KPD_COLS = 4; //
-//define the cymbols on the buttons of the keypads
+// define the symbols on the buttons of the keypads
 char hexaKeys[KPD_ROWS][KPD_COLS] = {
-  {'1','2','3','A'},
-  {'4','5','6','B'},
-  {'7','8','9','C'},
-  {'*','0','#','D'}
-};
-byte rowPins[KPD_ROWS] = {0, 1, 2, 3}; //connect to the row pinouts of the keypad
-byte colPins[KPD_COLS] = {4, 5, 6, 7}; //connect to the column pinouts of the keypad
-Keypad_I2C customKeypad( makeKeymap(hexaKeys), rowPins, colPins, KPD_ROWS, KPD_COLS, KPD_SLAVE);
+    {'1', '2', '3', 'A'},
+    {'4', '5', '6', 'B'},
+    {'7', '8', '9', 'C'},
+    {'*', '0', '#', 'D'}};
+byte rowPins[KPD_ROWS] = {0, 1, 2, 3}; // connect to the row pinouts of the keypad
+byte colPins[KPD_COLS] = {4, 5, 6, 7}; // connect to the column pinouts of the keypad
+Keypad_I2C customKeypad(makeKeymap(hexaKeys), rowPins, colPins, KPD_ROWS, KPD_COLS, KPD_SLAVE);
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
@@ -45,13 +44,13 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 void monitor_init();
 void monitor_loop();
 void timer_loop();
-void menu_init(uint8_t n_items, char const * const* labels);
+void menu_init(uint8_t n_items, char const *const *labels);
 void menu_loop();
 void menu_draw();
 void number_entry_init(int target_idx);
 void number_entry_loop();
 
-static __FlashStringHelper const* toFSH(char const* progmem_ptr);
+static __FlashStringHelper const *toFSH(char const *progmem_ptr);
 
 unsigned long last_draw_time = 0;
 
@@ -63,25 +62,26 @@ struct MenuState
     uint8_t cursor_row;
     uint8_t menu_top_row;
     uint8_t n_items;
-    char const * const * labels;
+    char const *const *labels;
 };
 MenuState menuState;
 
 const byte names_n_items = 3;
-const char names_0[] PROGMEM =     "Set Off Time";
-const char names_1[] PROGMEM =     "Set On Time";
-const char names_2[] PROGMEM =     "Exit";
-const char *const names_labels[] PROGMEM =
-{
-    names_0, names_1, names_2,
+const char names_0[] PROGMEM = "Set Off Time";
+const char names_1[] PROGMEM = "Set On Time";
+const char names_2[] PROGMEM = "Exit";
+const char *const names_labels[] PROGMEM = {
+    names_0,
+    names_1,
+    names_2,
 };
 
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, HIGH);           // Turn the LED on.
+    digitalWrite(LED_BUILTIN, HIGH); // Turn the LED on.
 
-    Wire.begin( );                // GDY200622
+    Wire.begin(); // GDY200622
     Serial.begin(9600);
 
     // set up the LCD's number of columns and rows:
@@ -92,9 +92,11 @@ void setup()
     lcd.begin(LCD_N_COLS, LCD_N_ROWS);
 #endif
 
-    customKeypad.begin( );        // GDY120705
+    customKeypad.begin(); // GDY120705
 
-    while (!Serial) { /*wait*/ }
+    while (!Serial)
+    { /*wait*/
+    }
 
     timer_init();
     monitor_init();
@@ -102,7 +104,7 @@ void setup()
     Serial.print(F("Boot "));
     Serial.print(switch_millis);
     Serial.println(F(" ms"));
-    digitalWrite(LED_BUILTIN, LOW);           // Turn the LED off.
+    digitalWrite(LED_BUILTIN, LOW); // Turn the LED off.
 }
 
 void loop()
@@ -139,14 +141,14 @@ void monitor_loop()
         // Toggle LED
         uint8_t ledState = !digitalRead(LED_BUILTIN);
         digitalWrite(LED_BUILTIN, ledState);
-        lcd.setCursor(17,1);
+        lcd.setCursor(17, 1);
         lcd.print(ledState ? F("On ") : F("Off"));
     }
 
     bool update_time_display = false;
     auto now = millis();
     auto elapsed = now - switch_millis;
-    if (elapsed - last_draw_time > 1000) //time_update_millis/1000 < elapsed / 1000)
+    if (elapsed - last_draw_time > 1000) // time_update_millis/1000 < elapsed / 1000)
     {
         update_time_display = true;
         last_draw_time = elapsed - (elapsed % 1000);
@@ -191,7 +193,7 @@ void monitor_draw()
     // lcd.print(toFSH((char const*) pgm_read_ptr(names_labels + selectedNameIdx)));
 }
 
-void menu_init(uint8_t n_items, char const * const* labels)
+void menu_init(uint8_t n_items, char const *const *labels)
 {
     menuState.cursor_row = 0;
     menuState.menu_top_row = 0;
@@ -212,13 +214,14 @@ void menu_loop()
 
     Serial.println(customKey);
 
-    if (customKey == 'D') { // Down
+    if (customKey == 'D')
+    { // Down
 
         if (menuState.cursor_row + 1u < menuState.n_items)
         {
             menuState.cursor_row++;
             if (menuState.menu_top_row + LCD_N_ROWS - 1 < menuState.cursor_row)
-                menuState.menu_top_row = max(0, (int8_t) menuState.cursor_row - ((int8_t) LCD_N_ROWS - 1));
+                menuState.menu_top_row = max(0, (int8_t)menuState.cursor_row - ((int8_t)LCD_N_ROWS - 1));
         }
         else if (menuState.cursor_row + 1 == menuState.n_items)
         {
@@ -227,7 +230,8 @@ void menu_loop()
             menuState.menu_top_row = 0;
         }
     }
-    else if (customKey == 'A') {  // Up
+    else if (customKey == 'A')
+    { // Up
 
         if (menuState.cursor_row > 0)
         {
@@ -239,17 +243,19 @@ void menu_loop()
         {
             // Wrap around to bottom
             menuState.cursor_row = menuState.n_items - 1;
-            //if (menuState.menu_top_row + LCD_N_ROWS - 1 < menuState.cursor_row)
-            menuState.menu_top_row = max(0, (int8_t) menuState.cursor_row - ((int8_t) LCD_N_ROWS - 1));
+            // if (menuState.menu_top_row + LCD_N_ROWS - 1 < menuState.cursor_row)
+            menuState.menu_top_row = max(0, (int8_t)menuState.cursor_row - ((int8_t)LCD_N_ROWS - 1));
         }
     }
-    else if (customKey == '*') { // Select
+    else if (customKey == '*')
+    { // Select
 
         menu_select(menuState.cursor_row);
         // Skip updating the LCD
         return;
     }
-    else {
+    else
+    {
 
         // Skip updating the LCD
         return;
@@ -265,11 +271,13 @@ void menu_draw()
         uint8_t idx = row + menuState.menu_top_row;
         lcd.print((idx == menuState.cursor_row) ? '>' : ' ');
         uint8_t n;
-        if (idx < menuState.n_items) {
+        if (idx < menuState.n_items)
+        {
             n = strlen_P(pgm_read_ptr(menuState.labels + idx));
-            lcd.print(toFSH((char const*) pgm_read_ptr(menuState.labels + idx)));
+            lcd.print(toFSH((char const *)pgm_read_ptr(menuState.labels + idx)));
         }
-        else {
+        else
+        {
             n = 0;
         }
         // Clear end of line
@@ -307,10 +315,10 @@ void number_entry_init(int target_idx)
     milliseconds = min(TEN_DAYS, milliseconds);
     unsigned long seconds = milliseconds / 1000;
     snprintf(g_number_entry_string, sizeof(g_number_entry_string), "%lud %02lu:%02lu:%02lu",
-        seconds / 86400,
-        (seconds / 3600) % 24,
-        (seconds / 60) % 60,
-        seconds % 60);
+             seconds / 86400,
+             (seconds / 3600) % 24,
+             (seconds / 60) % 60,
+             seconds % 60);
 
     lcd.clear();
     lcd.print(F("Enter Time:"));
@@ -348,34 +356,34 @@ void number_entry_loop()
 
         while (g_number_entry_column < 10)
         {
-            g_number_entry_column ++;
+            g_number_entry_column++;
             if (number_entry_check())
             {
-                break;  // Move cursor here
+                break; // Move cursor here
             }
         }
         lcd.setCursor(g_number_entry_column, 1);
     }
-    else if (customKey == 'B')  // Left
+    else if (customKey == 'B') // Left
     {
         while (g_number_entry_column > 0)
         {
-            g_number_entry_column --;
+            g_number_entry_column--;
             if (number_entry_check())
             {
-                break;  // Move cursor here
+                break; // Move cursor here
             }
         }
         lcd.setCursor(g_number_entry_column, 1);
     }
-    else if (customKey == 'C')  // Right
+    else if (customKey == 'C') // Right
     {
         while (g_number_entry_column < 10)
         {
             g_number_entry_column++;
             if (number_entry_check())
             {
-                break;  // Move cursor here
+                break; // Move cursor here
             }
         }
         lcd.setCursor(g_number_entry_column, 1);
@@ -386,7 +394,7 @@ void number_entry_loop()
         Serial.println(g_number_entry_string);
         unsigned short days, hours, mins, secs;
         int n_elts = sscanf_P(g_number_entry_string, PSTR("%hud %02hu:%02hu:%02hu"),
-            &days, &hours, &mins, &secs);
+                              &days, &hours, &mins, &secs);
         if (n_elts == 4)
         {
             unsigned long duration_ms = 1000ul * (secs + (60ul * mins + (60ul * (hours + 24ul * (unsigned long)days))));
@@ -408,7 +416,7 @@ void number_entry_loop()
     }
 }
 
-static __FlashStringHelper const* toFSH(char const* progmem_ptr)
+static __FlashStringHelper const *toFSH(char const *progmem_ptr)
 {
-    return reinterpret_cast<__FlashStringHelper const*>(progmem_ptr);
+    return reinterpret_cast<__FlashStringHelper const *>(progmem_ptr);
 }
