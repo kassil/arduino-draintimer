@@ -7,10 +7,8 @@ RUN apt-get update && apt-get install -y \
     gcc-avr \
     binutils-avr \
     avr-libc \
-    avrdude \
     git \
     nano \
-    minicom \
     arduino-core-avr \
     && rm -rf /var/lib/apt/lists/*
 
