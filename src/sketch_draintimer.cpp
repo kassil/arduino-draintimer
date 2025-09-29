@@ -41,12 +41,14 @@ constexpr uint8_t rs = 4, en = 5, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 #endif
 
+void monitor_draw();
 void monitor_init();
 void monitor_loop();
 void timer_loop();
 void menu_init(uint8_t n_items, char const *const *labels);
 void menu_loop();
 void menu_draw();
+void menu_select(uint8_t menu_idx);
 void number_entry_init(int target_idx);
 void number_entry_loop();
 
@@ -82,7 +84,7 @@ void setup()
     digitalWrite(LED_BUILTIN, HIGH); // Turn the LED on.
 
     Wire.begin(); // GDY200622
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     // set up the LCD's number of columns and rows:
 #ifdef LCD_I2C
@@ -273,7 +275,7 @@ void menu_draw()
         uint8_t n;
         if (idx < menuState.n_items)
         {
-            n = strlen_P(pgm_read_ptr(menuState.labels + idx));
+            n = strlen_P((char const*)pgm_read_ptr(menuState.labels + idx));
             lcd.print(toFSH((char const *)pgm_read_ptr(menuState.labels + idx)));
         }
         else
