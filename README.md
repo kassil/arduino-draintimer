@@ -19,7 +19,14 @@ docker run --rm -it \
 
 ## Build the project
 
-cmake -B build -DCMAKE_TOOLCHAIN_FILE=avr-gcc-toolchain.cmake
-cmake --build build
-cmake --build build --target flash
+Generate the project's build system.
 
+    cmake -B build -DCMAKE_TOOLCHAIN_FILE=avr-gcc-toolchain.cmake
+
+Build the project.
+
+    cmake --build build
+
+Flash the target.
+
+    cmake --build build --target flash

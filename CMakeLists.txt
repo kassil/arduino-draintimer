@@ -9,15 +9,6 @@ set(F_CPU 16000000UL)     # 16 MHz
 set(BAUD 115200)          # Serial baud rate for avrdude
 
 # --------------------------------------------------
-# Toolchain executables
-# --------------------------------------------------
-set(CMAKE_SYSTEM_NAME Generic)
-set(CMAKE_C_COMPILER avr-gcc)
-set(CMAKE_CXX_COMPILER avr-g++)
-set(CMAKE_OBJCOPY avr-objcopy)
-set(CMAKE_SIZE avr-size)
-
-# --------------------------------------------------
 # Arduino Core Paths (adjust if different in container)
 # --------------------------------------------------
 set(ARDUINO_SDK_PATH /usr/share/arduino)
@@ -122,9 +113,9 @@ add_arduino_core_library(${PROJECT_NAME}.elf Wire)
 # Point to where your extra libraries live
 set(USER_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
 
-add_arduino_user_library(ArduinoProject.elf joeyoung-Keypad_I2C ${USER_LIB_PATH} src)
-add_arduino_user_library(ArduinoProject.elf Keypad ${USER_LIB_PATH} src)
-add_arduino_user_library(ArduinoProject.elf johnrickman-LiquidCrystal_I2C ${USER_LIB_PATH})
+add_arduino_user_library(${PROJECT_NAME}.elf joeyoung-Keypad_I2C ${USER_LIB_PATH} src)
+add_arduino_user_library(${PROJECT_NAME}.elf Keypad ${USER_LIB_PATH} src)
+add_arduino_user_library(${PROJECT_NAME}.elf johnrickman-LiquidCrystal_I2C ${USER_LIB_PATH})
 
 # Generate HEX file
 add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
