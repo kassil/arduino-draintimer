@@ -30,3 +30,7 @@ Build the project.
 Flash the target.
 
     cmake --build build --target flash
+
+## Check the Flash and RAM usage
+
+    avr-size -C --mcu=atmega328p build/ArduinoProject.elf
