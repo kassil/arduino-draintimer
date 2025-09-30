@@ -164,7 +164,7 @@ void monitor_loop()
         }
 
         // Display count down time
-        lcd.setCursor(LCD_N_COLS - 8 - 4, 0);
+        lcd.setCursor(LCD_N_COLS - 8 - 3, 0);
         print_hms_time(lcd, timer_get_duration() - elapsed);
     }
 }
