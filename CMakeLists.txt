@@ -72,6 +72,12 @@ add_executable(${PROJECT_NAME}.elf ${SOURCES}
     ${LOCAL_LIB_SRC}
 )
 
+# Run avr-size every time the ELF is linked
+add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
+    COMMAND ${CMAKE_SIZE} --mcu=${MCU} -C $<TARGET_FILE:${PROJECT_NAME}.elf>
+    COMMENT "AVR memory usage"
+)
+
 # --------------------------------------------------
 # Include paths
 # --------------------------------------------------
