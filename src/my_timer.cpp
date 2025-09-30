@@ -38,6 +38,7 @@ void timer_init()
 
 void timer_loop()
 {
+    // This clock wraps every 49.7 days (2^32 / 1000ms/s / 60s/m / 60m/h / 24h/d)
     auto now = millis();
     auto elapsed = now - switch_millis;
     //if (switch_millis + switch_details[g_switch_state].duration < now)
