@@ -14,15 +14,20 @@ enum class Stage {
 };
 
 // static unsigned long start_millis;
+static void (*substate_loop)(void);
+static unsigned long pause_millis;
 static unsigned long end_millis;
 static uint8_t n_soap;
 static uint8_t n_rinse;
+static uint8_t i_cycle;
 
 // Periodically call this to service the mode.
+static void cycle_loop();
 static void fill_loop();
 static void pump_loop();
 static void drain_loop();
 static void cycle_complete_loop();
+static void paused_loop();
 static void print_remain(unsigned long const& now);
 
 // Enter the wash/rinse/drain mode
@@ -30,13 +35,19 @@ static void wash_enter();
 static void rinse_enter();
 static void drain_enter();
 
-static void printStage(Stage stage);
-static void lcdPrintLeftJustify(uint16_t value, uint8_t width);
+static void print_cycle_wash();
+static void print_cycle_rinse();
+static void print_stage(Stage stage);
+static void lcd_print_left_justify(uint16_t value, uint8_t width);
+static void lcd_print_right_justify(uint16_t value, uint8_t width);
+
+constexpr unsigned long FILL_TIME_MS = 2500;
 
 void cycle_enter(uint8_t n_soap_, uint8_t n_rinse_)
 {
     n_soap = n_soap_;
     n_rinse = n_rinse_;
+    i_cycle = 1;
     if (n_soap)
     {
         wash_enter();
@@ -49,30 +60,67 @@ void cycle_enter(uint8_t n_soap_, uint8_t n_rinse_)
     {
         drain_enter();
     }
+    loop_function = cycle_loop;
+}
+
+void cycle_loop()
+{
+    // For all cycles except paused_loop and cycle_complete_loop
+    // Service keypad
+    char const customKey = customKeypad.getKey();
+    if (customKey == '#')
+    {
+        lcd.setCursor(0, 3);
+        lcd.print(F("* Resume    # Cancel"));
+        pause_millis = millis();
+        loop_function = paused_loop;
+        return;
+    }
+    // Run the cycle
+    substate_loop();
+}
+
+void paused_loop()
+{
+    char const customKey = customKeypad.getKey();
+    if (customKey == '*')
+    {
+        // Resume from pause
+        end_millis += millis() - pause_millis;
+        lcd.setCursor(0, 3);
+        lcd.print(F("                    "));
+        loop_function = cycle_loop;
+    }
+    else if (customKey == '#')
+    {
+        //TODO Hold button for > 300 ms?
+        // Wait for user
+        lcd.clear();
+        lcd.print(F("Cycle cancelled"));
+        lcd.setCursor(0, 1);
+        lcd.print(F("Press *"));
+        loop_function = cycle_complete_loop;
+    }
 }
 
 void wash_enter()
 {
     // Start filling
-    lcd.clear();
-    lcd.print(F("Wash "));
-    lcd.print(n_soap);
-    printStage(Stage::Fill);
+    print_cycle_wash();
+    print_stage(Stage::Fill);
     const auto now = millis();
-    end_millis = now + 3000;
-    loop_function = fill_loop;
+    end_millis = now + FILL_TIME_MS;
+    substate_loop = fill_loop;
 }
 
 void rinse_enter()
 {
     // Start filling
-    lcd.clear();
-    lcd.print(F("Rinse "));
-    lcd.print(n_rinse);
-    printStage(Stage::Fill);
+    print_cycle_rinse();
+    print_stage(Stage::Fill);
     const auto now = millis();
-    end_millis = now + 3000;
-    loop_function = fill_loop;
+    end_millis = now + FILL_TIME_MS;
+    substate_loop = fill_loop;
 }
 
 void fill_loop()
@@ -81,21 +129,18 @@ void fill_loop()
     if (now >= end_millis)
     {
         // Start pumping
-        lcd.clear();
-        if (n_soap)
+        if (i_cycle <= n_soap)
         {
-            lcd.print(F("Wash "));
-            lcd.print(n_soap);
-            end_millis = now + 6000;
+            print_cycle_wash();
+            end_millis = now + 4500;
         }
         else
         {
-            lcd.print(F("Rinse "));
-            lcd.print(n_rinse);
-            end_millis = now + 3000;
+            print_cycle_rinse();
+            end_millis = now + 2500;
         }
-        printStage(Stage::Pump);
-        loop_function = pump_loop;
+        print_stage(Stage::Pump);
+        substate_loop = pump_loop;
     }
     else
     {
@@ -120,25 +165,23 @@ void pump_loop()
 void drain_enter()
 {
     // Start draining
-    lcd.clear();
-    if (n_soap)
+    if (i_cycle <= n_soap)
     {
-        lcd.print(F("Wash "));
-        lcd.print(n_soap);
+        print_cycle_wash();
     }
-    else if (n_rinse)
+    else if (i_cycle <= n_soap + n_rinse)
     {
-        lcd.print(F("Rinse "));
-        lcd.print(n_rinse);
+        print_cycle_rinse();
     }
     else
     {
         // Not part of a wash/rinse cycle
+        lcd.clear();
     }
-    printStage(Stage::Drain);
+    print_stage(Stage::Drain);
     const auto now = millis();
-    end_millis = now + 3000;
-    loop_function = drain_loop;
+    end_millis = now + 2500;
+    substate_loop = drain_loop;
 }
 
 void drain_loop()
@@ -147,14 +190,13 @@ void drain_loop()
     if (now >= end_millis)
     {
         // Another cycle?
-        if (n_soap > 1)
+        i_cycle++;
+        if (i_cycle <= n_soap)
         {
-            n_soap --;
             wash_enter();
         }
-        else if (n_rinse > 1)
+        else if (i_cycle <= n_soap + n_rinse)
         {
-            n_rinse --;
             rinse_enter();
         }
         else // no more cycles
@@ -175,7 +217,7 @@ void drain_loop()
 
 void cycle_complete_loop()
 {
-    // Print CYCLE COMPLETE and hold here
+    // Wait for user, then return to main menu
     char const customKey = customKeypad.getKey();
     if (customKey == '*')
     {
@@ -186,14 +228,31 @@ void cycle_complete_loop()
 void print_remain(unsigned long const& now)
 {
     auto remain = static_cast<unsigned short>((end_millis - now)/100);
-    lcd.setCursor(7, 1);
-    lcdPrintLeftJustify(remain, 5);
+    lcd.setCursor(7, 2);
+    lcd_print_right_justify(remain, 4);
     lcd.print(F("s"));
 }
 
-void printStage(Stage stage)
+void print_cycle_wash()
 {
-    lcd.setCursor(10, 0);
+    lcd.clear();
+    lcd.print(F("Wash "));
+    lcd.print(i_cycle);
+    lcd.print('/');
+    lcd.print(n_soap);
+}
+
+void print_cycle_rinse()
+{
+    lcd.clear();
+    lcd.print(F("Rinse "));
+    lcd.print(i_cycle - n_soap);
+    lcd.print('/');
+    lcd.print(n_rinse);
+}
+
+void print_stage(Stage stage)
+{
     const __FlashStringHelper* str;
     if (stage == Stage::Fill) {
         str = F("Filling");
@@ -205,14 +264,16 @@ void printStage(Stage stage)
         str = F("Draining");
     }
     else {
-        str = F("--");
+        str = F("?Stage?");
     }
     lcd.setCursor(0, 1);
+    lcd.print(str);
+    lcd.setCursor(0, 2);
     lcd.print(F("Remain "));
 }
 
-// Print an integer left-justified in a fixed-width field
-static void lcdPrintLeftJustify(uint16_t value, uint8_t width) {
+// Print a non-negative integer left-justified in a fixed-width field
+static void lcd_print_left_justify(uint16_t value, uint8_t width) {
     // Print the number itself
     lcd.print(value);
 
@@ -228,4 +289,23 @@ static void lcdPrintLeftJustify(uint16_t value, uint8_t width) {
     for (uint8_t i = digits; i < width; i++) {
         lcd.print(' ');
     }
+}
+
+// Print a non-negative integer right-justified in a fixed-width field
+static void lcd_print_right_justify(uint16_t value, uint8_t width) {
+    // Count digits in the value
+    uint16_t tmp = value;
+    uint8_t digits = 1;
+    while (tmp >= 10) {
+        tmp /= 10;
+        digits++;
+    }
+
+    // Print leading spaces if needed
+    for (uint8_t i = digits; i < width; i++) {
+        lcd.print(' ');
+    }
+
+    // Print the number itself
+    lcd.print(value);
 }
