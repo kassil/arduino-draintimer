@@ -20,7 +20,13 @@ set(ARDUINO_LIB_PATH ${ARDUINO_SDK_PATH}/hardware/arduino/avr/libraries)
 # Collect sources
 # --------------------------------------------------
 # Your sources
-file(GLOB SRC_FILES src/*.cpp)
+set(SRC_FILES
+    menu.cpp
+    my_timer.cpp
+    number_entry.cpp
+    sketch_draintimer.cpp
+)
+list(TRANSFORM SRC_FILES PREPEND src/)
 
 # Arduino core sources
 file(GLOB ARDUINO_CORE_SRC
