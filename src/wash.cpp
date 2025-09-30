@@ -7,6 +7,12 @@
 #include <stdio.h>
 #include <string.h>
 
+enum class Stage {
+    Fill,
+    Pump,
+    Drain,
+};
+
 // static unsigned long start_millis;
 static unsigned long end_millis;
 static uint8_t n_soap;
@@ -24,7 +30,8 @@ static void wash_enter();
 static void rinse_enter();
 static void drain_enter();
 
-static void lcdPrintLeftJustify(LiquidCrystal_I2C &lcd, uint16_t value, uint8_t width);
+static void printStage(Stage stage);
+static void lcdPrintLeftJustify(uint16_t value, uint8_t width);
 
 void cycle_enter(uint8_t n_soap_, uint8_t n_rinse_)
 {
@@ -48,11 +55,9 @@ void wash_enter()
 {
     // Start filling
     lcd.clear();
-    lcd.print(F("Wash Fill"));
-    lcd.print(' ');
+    lcd.print(F("Wash "));
     lcd.print(n_soap);
-    lcd.setCursor(0, 1);
-    lcd.print(F("Remain "));
+    printStage(Stage::Fill);
     const auto now = millis();
     end_millis = now + 3000;
     loop_function = fill_loop;
@@ -62,11 +67,9 @@ void rinse_enter()
 {
     // Start filling
     lcd.clear();
-    lcd.print(F("Rinse Fill"));
-    lcd.print(' ');
+    lcd.print(F("Rinse "));
     lcd.print(n_rinse);
-    lcd.setCursor(0, 1);
-    lcd.print(F("Remain "));
+    printStage(Stage::Fill);
     const auto now = millis();
     end_millis = now + 3000;
     loop_function = fill_loop;
@@ -81,20 +84,17 @@ void fill_loop()
         lcd.clear();
         if (n_soap)
         {
-            lcd.print(F("Wash Pump"));
-            lcd.print(' ');
+            lcd.print(F("Wash "));
             lcd.print(n_soap);
             end_millis = now + 6000;
         }
         else
         {
-            lcd.print(F("Rinse Pump"));
-            lcd.print(' ');
+            lcd.print(F("Rinse "));
             lcd.print(n_rinse);
             end_millis = now + 3000;
         }
-        lcd.setCursor(0, 1);
-        lcd.print(F("Remain "));
+        printStage(Stage::Pump);
         loop_function = pump_loop;
     }
     else
@@ -123,22 +123,19 @@ void drain_enter()
     lcd.clear();
     if (n_soap)
     {
-        lcd.print(F("Wash Drain"));
-        lcd.print(' ');
+        lcd.print(F("Wash "));
         lcd.print(n_soap);
     }
     else if (n_rinse)
     {
-        lcd.print(F("Rinse Drain"));
-        lcd.print(' ');
+        lcd.print(F("Rinse "));
         lcd.print(n_rinse);
     }
     else
     {
-        lcd.print(F("Drain"));
+        // Not part of a wash/rinse cycle
     }
-    lcd.setCursor(0, 1);
-    lcd.print(F("Remain "));
+    printStage(Stage::Drain);
     const auto now = millis();
     end_millis = now + 3000;
     loop_function = drain_loop;
@@ -190,16 +187,32 @@ void print_remain(unsigned long const& now)
 {
     auto remain = static_cast<unsigned short>((end_millis - now)/100);
     lcd.setCursor(7, 1);
-    lcdPrintLeftJustify(lcd, remain, 5);
+    lcdPrintLeftJustify(remain, 5);
     lcd.print(F("s"));
-    // TODO I don't like blindly writing spaces after the field
-    //const char remain_fmtspec[] PROGMEM = "Remain %04hu s";
-    //char buffer [LCD_N_COLS + 1];
-    //snprintf_P(buffer, sizeof(buffer), PSTR("Remain %04hu s"), remain);
+}
+
+void printStage(Stage stage)
+{
+    lcd.setCursor(10, 0);
+    const __FlashStringHelper* str;
+    if (stage == Stage::Fill) {
+        str = F("Filling");
+    }
+    else if (stage == Stage::Pump) {
+        str = F("Circulate");
+    }
+    else if (stage == Stage::Drain) {
+        str = F("Draining");
+    }
+    else {
+        str = F("--");
+    }
+    lcd.setCursor(0, 1);
+    lcd.print(F("Remain "));
 }
 
 // Print an integer left-justified in a fixed-width field
-static void lcdPrintLeftJustify(LiquidCrystal_I2C &lcd, uint16_t value, uint8_t width) {
+static void lcdPrintLeftJustify(uint16_t value, uint8_t width) {
     // Print the number itself
     lcd.print(value);
 
