@@ -1,7 +1,6 @@
 #include "menu.h"
 #include "drain_timer.h"
 #include "monitor.h"
-#include "number_entry.h"
 #include <Keypad_I2C.h>
 #include <LiquidCrystal_I2C.h>
 
@@ -11,20 +10,21 @@ struct MenuState
     uint8_t menu_top_row;
     uint8_t n_items;
     char const *const *labels;
+    void (*select_callback)(uint8_t menu_idx);
 };
 MenuState menuState;
 
 static __FlashStringHelper const *toFSH(char const *progmem_ptr);
 
 static void menu_draw();
-static void menu_select(uint8_t menu_idx);
 
-void menu_enter(uint8_t n_items, char const *const *labels)
+void menu_enter(uint8_t n_items, char const *const *labels, void (*select_callback)(uint8_t menu_idx))
 {
     menuState.cursor_row = 0;
     menuState.menu_top_row = 0;
     menuState.n_items = n_items;
     menuState.labels = labels;
+    menuState.select_callback = select_callback;
     loop_function = menu_loop;
 
     menu_draw();
@@ -76,7 +76,7 @@ void menu_loop()
     else if (customKey == '*')
     { // Select
 
-        menu_select(menuState.cursor_row);
+        menuState.select_callback(menuState.cursor_row);
         // Skip updating the LCD
         return;
     }
@@ -109,20 +109,6 @@ void menu_draw()
         // Clear end of line
         for (uint8_t i = n; i < LCD_N_COLS - 1; ++i)
             lcd.print(' ');
-    }
-}
-
-void menu_select(uint8_t menu_idx)
-{
-    if (menu_idx == 0 || menu_idx == 1)
-    {
-        // Set on/off time
-        number_entry_init(menu_idx);
-    }
-    else
-    {
-        // Back to monitor screen
-        monitor_enter();
     }
 }
 

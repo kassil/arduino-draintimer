@@ -4,6 +4,7 @@
 #include "menu.h"
 #include "monitor.h"
 #include "my_timer.h"
+#include "number_entry.h"
 
 #include <Arduino.h>
 #include <Keypad_I2C.h>
@@ -15,6 +16,8 @@
 #endif
 #include <Wire.h>
 #include <stdint.h>
+
+static void menu_select(uint8_t menu_idx);
 
 constexpr uint8_t KPD_SLAVE = 0x20;
 // Addr Vend   A2 A1 A0
@@ -121,7 +124,7 @@ void monitor_loop()
     if (customKey == '*')
     {
         // Switch to menu mode
-        menu_enter(names_n_items, names_labels);
+        menu_enter(names_n_items, names_labels, menu_select);
         return;
     }
     else if (customKey == 'A')
@@ -174,4 +177,19 @@ void monitor_draw()
     lcd.print(g_switch_state ? F("On ") : F("Off"));
     lcd.setCursor(0, 1);
     lcd.print(F("LED:"));
+}
+
+
+void menu_select(uint8_t menu_idx)
+{
+    if (menu_idx == 0 || menu_idx == 1)
+    {
+        // Set on/off time
+        number_entry_init(menu_idx);
+    }
+    else
+    {
+        // Back to monitor screen
+        monitor_enter();
+    }
 }
