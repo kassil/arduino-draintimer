@@ -21,10 +21,9 @@ set(ARDUINO_LIB_PATH ${ARDUINO_SDK_PATH}/hardware/arduino/avr/libraries)
 # --------------------------------------------------
 # Your sources
 set(SRC_FILES
+    main.cpp
     menu.cpp
-    my_timer.cpp
-    number_entry.cpp
-    sketch_draintimer.cpp
+    wash.cpp
 )
 list(TRANSFORM SRC_FILES PREPEND src/)
 

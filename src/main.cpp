@@ -3,8 +3,7 @@
 #include "drain_timer.h"
 #include "menu.h"
 #include "monitor.h"
-#include "my_timer.h"
-#include "number_entry.h"
+#include "wash.h"
 
 #include <Arduino.h>
 #include <Keypad_I2C.h>
@@ -17,7 +16,7 @@
 #include <Wire.h>
 #include <stdint.h>
 
-static void menu_select(uint8_t menu_idx);
+static void mainmenu_select(uint8_t menu_idx);
 
 constexpr uint8_t KPD_SLAVE = 0x20;
 // Addr Vend   A2 A1 A0
@@ -51,14 +50,20 @@ unsigned long next_draw_time = 0;
 // What function we call in our loop.  This changes with the state.
 void (*loop_function)();
 
-const byte names_n_items = 3;
-const char names_0[] PROGMEM = "Set Off Time";
-const char names_1[] PROGMEM = "Set On Time";
-const char names_2[] PROGMEM = "Exit";
-const char *const names_labels[] PROGMEM = {
-    names_0,
-    names_1,
-    names_2,
+constexpr byte mainmenu_n_items = 6;
+const char mainmenu_labels_0[] PROGMEM = "Wash";
+const char mainmenu_labels_1[] PROGMEM = "Drain";
+const char mainmenu_labels_2[] PROGMEM = "Rinse";
+const char mainmenu_labels_3[] PROGMEM = "Delay Wash 1h";
+const char mainmenu_labels_4[] PROGMEM = "Delay Wash 4h";
+const char mainmenu_labels_5[] PROGMEM = "Delay Wash 8h";
+const char *const mainmenu_labels[] PROGMEM = {
+    mainmenu_labels_0,
+    mainmenu_labels_1,
+    mainmenu_labels_2,
+    mainmenu_labels_3,
+    mainmenu_labels_4,
+    mainmenu_labels_5,
 };
 
 void setup()
@@ -83,23 +88,26 @@ void setup()
     { /*wait*/
     }
 
-    timer_init();
-    monitor_enter();
+    //timer_init();
+    mainmenu_enter();
 
-    Serial.print(F("Boot "));
-    Serial.print(switch_millis);
-    Serial.println(F(" ms"));
+    // Serial.print(F("Boot "));
+    // Serial.print(switch_millis);
+    // Serial.println(F(" ms"));
     digitalWrite(LED_BUILTIN, LOW); // Turn the LED off.
 }
 
 void loop()
 {
     loop_function();
-
-    // Update the timer. Do this in all states.
-    timer_loop();
 }
 
+void mainmenu_enter()
+{
+    menu_enter(mainmenu_n_items, mainmenu_labels, mainmenu_select);
+}
+
+#if 0
 void monitor_enter()
 {
     loop_function = monitor_loop;
@@ -124,7 +132,7 @@ void monitor_loop()
     if (customKey == '*')
     {
         // Switch to menu mode
-        menu_enter(names_n_items, names_labels, menu_select);
+        menu_enter(mainmenu_n_items, mainmenu_labels, mainmenu_select);
         return;
     }
     else if (customKey == 'A')
@@ -178,18 +186,30 @@ void monitor_draw()
     lcd.setCursor(0, 1);
     lcd.print(F("LED:"));
 }
+#endif
 
-
-void menu_select(uint8_t menu_idx)
+void mainmenu_select(uint8_t menu_idx)
 {
-    if (menu_idx == 0 || menu_idx == 1)
+    if (menu_idx == 0)
     {
-        // Set on/off time
-        number_entry_init(menu_idx);
+        // Wash
+        cycle_enter(2, 1);
     }
+    else if (menu_idx == 1)
+    {
+        // Drain
+        cycle_enter(0, 0);
+    }
+    else if (menu_idx == 2)
+    {
+        // Rinse
+        cycle_enter(0, 1);
+    }
+    //else Delay wash 1/4/8h
     else
     {
-        // Back to monitor screen
-        monitor_enter();
+        // Invalid menu selection
+        Serial.print(F("mm inv "));
+        Serial.print(menu_idx);
     }
 }

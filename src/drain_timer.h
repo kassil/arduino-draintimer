@@ -15,3 +15,5 @@ extern LiquidCrystal_I2C lcd;
 
 // What function we call in our loop.  This changes with the state.
 extern void (*loop_function)();
+
+void mainmenu_enter();
