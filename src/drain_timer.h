@@ -1,3 +1,6 @@
+/*
+ * Here are the global variables and routines for the project.
+ */
 #pragma once
 #include <stdint.h>
 

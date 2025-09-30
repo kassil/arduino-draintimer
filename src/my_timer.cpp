@@ -22,7 +22,7 @@ uint8_t g_switch_state;
 bool g_update_time_display;
 bool g_update_state;
 
-
+// Call this once at boot-up
 void timer_init()
 {
     for (byte pin = relay_pin_first; pin != relay_pin_last; ++pin)
@@ -41,7 +41,6 @@ void timer_loop()
     // This clock wraps every 49.7 days (2^32 / 1000ms/s / 60s/m / 60m/h / 24h/d)
     auto now = millis();
     auto elapsed = now - switch_millis;
-    //if (switch_millis + switch_details[g_switch_state].duration < now)
     if (elapsed > switch_details[g_switch_state].duration)
     {
         // Don't accumulate latency
@@ -79,8 +78,9 @@ void timer_set_duration(uint8_t idx, unsigned long duration_ms)
 
 void print_hms_time(Print& target, unsigned long milliseconds)
 {
-    constexpr auto TEN_DAYS = 10ul * 24 * 60 * 60 * 1000ul;
-    milliseconds = min(TEN_DAYS, milliseconds);
+    // Max 9d 23:59:59
+    constexpr auto MAX_VALUE = 10ul * 24 * 60 * 60 * 1000ul - 1;
+    milliseconds = min(MAX_VALUE, milliseconds);
     char buffer[13];
     unsigned long seconds = milliseconds / 1000;
     snprintf(buffer, sizeof(buffer), "%lud %2lu:%02lu:%02lu",

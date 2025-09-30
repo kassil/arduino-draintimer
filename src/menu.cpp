@@ -16,6 +16,9 @@ MenuState menuState;
 
 static __FlashStringHelper const *toFSH(char const *progmem_ptr);
 
+static void menu_draw();
+static void menu_select(uint8_t menu_idx);
+
 void menu_enter(uint8_t n_items, char const *const *labels)
 {
     menuState.cursor_row = 0;

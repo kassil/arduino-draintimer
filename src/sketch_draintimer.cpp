@@ -135,7 +135,6 @@ void monitor_loop()
 
     bool update_time_display = false;
     auto const now = millis();
-    auto elapsed = now - switch_millis;
     if (now >= next_draw_time)
     {
         update_time_display = true;
@@ -144,6 +143,7 @@ void monitor_loop()
 
     if (update_time_display || g_update_state)
     {
+        auto elapsed = now - switch_millis;
         if (g_update_state)
         {
             g_update_state = false;
