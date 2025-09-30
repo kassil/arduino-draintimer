@@ -13,12 +13,17 @@ enum class Stage {
     Drain,
 };
 
-// static unsigned long start_millis;
 static void (*substate_loop)(void);
+// Clock time when we paused
 static unsigned long pause_millis;
+// Clock time when the current stage will be complete.
 static unsigned long end_millis;
+// Number of WASH stages
 static uint8_t n_soap;
+// Number of RINSE stage
 static uint8_t n_rinse;
+// Stage number (cumulative count of WASHes and RINSEs)
+// Ascending range 1 .. n_soap + n_rinse
 static uint8_t i_cycle;
 
 // Periodically call this to service the mode.
@@ -32,6 +37,7 @@ static void paused_loop();
 static void print_remain(unsigned long const& now);
 
 // Enter the wash/rinse/drain mode
+// Set substate_loop and redraw the LCD.
 static void cycle_enter();
 static void wash_enter();
 static void rinse_enter();
