@@ -43,7 +43,7 @@ constexpr uint8_t rs = 4, en = 5, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 #endif
 
-unsigned long last_draw_time = 0;
+unsigned long next_draw_time = 0;
 
 // What function we call in our loop.  This changes with the state.
 void (*loop_function)();
@@ -100,7 +100,7 @@ void loop()
 void monitor_enter()
 {
     loop_function = monitor_loop;
-    last_draw_time = millis() - 0x7FFFFFFF;
+    next_draw_time = millis();
 
     lcd.clear();
     lcd.setCursor(0, 0);
@@ -127,19 +127,19 @@ void monitor_loop()
     else if (customKey == 'A')
     {
         // Toggle LED
-        uint8_t ledState = !digitalRead(LED_BUILTIN);
+        uint8_t const ledState = !digitalRead(LED_BUILTIN);
         digitalWrite(LED_BUILTIN, ledState);
         lcd.setCursor(17, 1);
         lcd.print(ledState ? F("On ") : F("Off"));
     }
 
     bool update_time_display = false;
-    auto now = millis();
+    auto const now = millis();
     auto elapsed = now - switch_millis;
-    if (elapsed - last_draw_time > 1000) // time_update_millis/1000 < elapsed / 1000)
+    if (now >= next_draw_time)
     {
         update_time_display = true;
-        last_draw_time = elapsed - (elapsed % 1000);
+        next_draw_time = (now - (now % 1000)) + 1000;
     }
 
     if (update_time_display || g_update_state)
@@ -154,12 +154,10 @@ void monitor_loop()
         if (update_time_display)
         {
             Serial.print(now);
-            Serial.print(F("\tlast draw "));
-            Serial.print(last_draw_time);
             Serial.print(F("\telapsed "));
             Serial.print(elapsed);
             Serial.print(F(" next "));
-            Serial.print(last_draw_time + 1000);
+            Serial.print(next_draw_time);
             Serial.println();
         }
 
