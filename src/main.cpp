@@ -109,26 +109,40 @@ void mainmenu_enter()
 
 void mainmenu_select(uint8_t menu_idx)
 {
+    Serial.print(F("mm sel "));
+    Serial.println(menu_idx);
     if (menu_idx == 0)
     {
         // Wash
-        cycle_enter(2, 1);
+        delay_cycle_enter(0, 2, 1);
     }
     else if (menu_idx == 1)
     {
         // Drain
-        cycle_enter(0, 0);
+        delay_cycle_enter(0, 0, 0);
     }
     else if (menu_idx == 2)
     {
         // Rinse
-        cycle_enter(0, 1);
+        delay_cycle_enter(0, 0, 1);
     }
     //else Delay wash 1/4/8h
+    else if (menu_idx == 3)
+    {
+        delay_cycle_enter(1ul*1000*10, 2, 1);
+    }
+    else if (menu_idx == 4)
+    {
+        delay_cycle_enter(4ul*1000*10, 2, 1);
+    }
+    else if (menu_idx == 5)
+    {
+        delay_cycle_enter(8ul*1000*10, 2, 1);
+    }
     else
     {
         // Invalid menu selection
         Serial.print(F("mm inv "));
-        Serial.print(menu_idx);
+        Serial.println(menu_idx);
     }
 }

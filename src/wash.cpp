@@ -22,6 +22,7 @@ static uint8_t n_rinse;
 static uint8_t i_cycle;
 
 // Periodically call this to service the mode.
+static void delay_loop();
 static void cycle_loop();
 static void fill_loop();
 static void pump_loop();
@@ -31,6 +32,7 @@ static void paused_loop();
 static void print_remain(unsigned long const& now);
 
 // Enter the wash/rinse/drain mode
+static void cycle_enter();
 static void wash_enter();
 static void rinse_enter();
 static void drain_enter();
@@ -43,11 +45,42 @@ static void lcd_print_right_justify(uint16_t value, uint8_t width);
 
 constexpr unsigned long FILL_TIME_MS = 2500;
 
-void cycle_enter(uint8_t n_soap_, uint8_t n_rinse_)
+void delay_cycle_enter(unsigned long delay, uint8_t n_soap_, uint8_t n_rinse_)
 {
     n_soap = n_soap_;
     n_rinse = n_rinse_;
     i_cycle = 1;
+    if (delay)
+    {
+        lcd.clear();
+        lcd.print(F("Delay Start"));
+        substate_loop = delay_loop;
+        end_millis = millis() + delay;
+    }
+    else
+    {
+        // No delay
+        cycle_enter();
+    }
+    loop_function = cycle_loop;
+}
+
+void delay_loop()
+{
+    const auto now = millis();
+    if (now >= end_millis)
+    {
+        // Delay finished
+        cycle_enter();
+    }
+    else
+    {
+        print_remain(now);
+    }
+}
+
+void cycle_enter()
+{
     if (n_soap)
     {
         wash_enter();
@@ -60,7 +93,6 @@ void cycle_enter(uint8_t n_soap_, uint8_t n_rinse_)
     {
         drain_enter();
     }
-    loop_function = cycle_loop;
 }
 
 void cycle_loop()
