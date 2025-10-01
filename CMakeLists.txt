@@ -23,6 +23,7 @@ set(ARDUINO_LIB_PATH ${ARDUINO_SDK_PATH}/hardware/arduino/avr/libraries)
 set(SRC_FILES
     main.cpp
     menu.cpp
+    utils.cpp
     wash.cpp
 )
 list(TRANSFORM SRC_FILES PREPEND src/)
