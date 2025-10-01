@@ -1,6 +1,7 @@
 #define LCD_I2C
 
 #include "drain_timer.h"
+#include "diags.h"
 #include "menu.h"
 #include "monitor.h"
 #include "wash.h"
@@ -50,20 +51,22 @@ unsigned long next_draw_time = 0;
 // What function we call in our loop.  This changes with the state.
 void (*loop_function)();
 
-constexpr byte mainmenu_n_items = 6;
+constexpr byte mainmenu_n_items = 7;
 const char mainmenu_labels_0[] PROGMEM = "Wash";
 const char mainmenu_labels_1[] PROGMEM = "Drain";
 const char mainmenu_labels_2[] PROGMEM = "Rinse";
 const char mainmenu_labels_3[] PROGMEM = "Delay Wash 1h";
 const char mainmenu_labels_4[] PROGMEM = "Delay Wash 4h";
 const char mainmenu_labels_5[] PROGMEM = "Delay Wash 8h";
-const char *const mainmenu_labels[] PROGMEM = {
+const char mainmenu_labels_6[] PROGMEM = "Diagnostics";
+const char *const mainmenu_labels[mainmenu_n_items] PROGMEM = {
     mainmenu_labels_0,
     mainmenu_labels_1,
     mainmenu_labels_2,
     mainmenu_labels_3,
     mainmenu_labels_4,
     mainmenu_labels_5,
+    mainmenu_labels_6,
 };
 
 void setup()
@@ -138,6 +141,10 @@ void mainmenu_select(uint8_t menu_idx)
     else if (menu_idx == 5)
     {
         delay_cycle_enter(8ul*1000*10, 2, 1);
+    }
+    else if (menu_idx == 6)
+    {
+        diags_enter();
     }
     else
     {

@@ -21,6 +21,7 @@ set(ARDUINO_LIB_PATH ${ARDUINO_SDK_PATH}/hardware/arduino/avr/libraries)
 # --------------------------------------------------
 # Your sources
 set(SRC_FILES
+    diags.cpp
     main.cpp
     menu.cpp
     utils.cpp
