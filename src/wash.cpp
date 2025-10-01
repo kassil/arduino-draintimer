@@ -4,8 +4,6 @@
 #include <Keypad_I2C.h>
 #include <LiquidCrystal_I2C.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 enum class Stage {
     Fill,
@@ -53,6 +51,10 @@ constexpr unsigned long FILL_TIME_MS = 2500;
 
 void delay_cycle_enter(unsigned long delay, uint8_t n_soap_, uint8_t n_rinse_)
 {
+    Serial.print(F("Start D:"));
+    Serial.print(delay); Serial.print(F(", W:"));
+    Serial.print(n_soap_ ); Serial.print(F(", R:"));
+    Serial.print(n_rinse_); Serial.println();
     n_soap = n_soap_;
     n_rinse = n_rinse_;
     i_cycle = 1;
@@ -112,6 +114,7 @@ void cycle_loop()
         lcd.print(F("* Resume    # Cancel"));
         pause_millis = millis();
         loop_function = paused_loop;
+        Serial.print(F("Paused"));
         return;
     }
     // Run the cycle
@@ -138,6 +141,7 @@ void paused_loop()
         lcd.setCursor(0, 1);
         lcd.print(F("Press *"));
         loop_function = cycle_complete_loop;
+        Serial.print(F("Cancelled"));
     }
 }
 
