@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Keypad_I2C.h>
 #include <LiquidCrystal_I2C.h>
+#include <PCF8574.h>
 #include <stdint.h>
 
 enum class Stage {
@@ -149,6 +150,7 @@ void wash_enter()
     // Start filling
     print_cycle_wash();
     print_stage(Stage::Fill);
+    relays.write8(~(Relays::Pilot | Relays::FillSolenoid));
     const auto now = millis();
     end_millis = now + FILL_TIME_MS;
     substate_loop = fill_loop;
@@ -159,6 +161,7 @@ void rinse_enter()
     // Start filling
     print_cycle_rinse();
     print_stage(Stage::Fill);
+    relays.write8(~(Relays::Pilot | Relays::FillSolenoid));
     const auto now = millis();
     end_millis = now + FILL_TIME_MS;
     substate_loop = fill_loop;
@@ -181,6 +184,9 @@ void fill_loop()
             end_millis = now + 2500;
         }
         print_stage(Stage::Pump);
+        relays.write8(~(Relays::Pilot | Relays::WashMotor | Relays::HeaterL | Relays::HeaterN));
+        //TODO Enable dispensor if washing
+        //TODO Enable heating PID control
         substate_loop = pump_loop;
     }
     else
@@ -220,6 +226,7 @@ void drain_enter()
         lcd.clear();
     }
     print_stage(Stage::Drain);
+    relays.write8(~(Relays::Pilot | Relays::DrainMotor));
     const auto now = millis();
     end_millis = now + 2500;
     substate_loop = drain_loop;

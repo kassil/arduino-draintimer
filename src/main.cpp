@@ -14,6 +14,7 @@
 #else
 #include <LiquidCrystal.h>
 #endif
+#include <PCF8574.h>
 #include <Wire.h>
 #include <stdint.h>
 
@@ -46,6 +47,9 @@ constexpr uint8_t rs = 4, en = 5, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 #endif
 
+// TODO Allocate slave address
+constexpr uint8_t RELAYS_SLAVE = 0x21;
+PCF8574 relays(RELAYS_SLAVE);
 
 // What function we call in our loop.  This changes with the state.
 void (*loop_function)();
@@ -75,6 +79,8 @@ void setup()
 
     Wire.begin(); // GDY200622
     Serial.begin(115200);
+
+    relays.begin();  // all relays off (active low boards)
 
     // set up the LCD's number of columns and rows:
 #ifdef LCD_I2C

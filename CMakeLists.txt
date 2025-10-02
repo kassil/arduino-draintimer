@@ -129,6 +129,7 @@ set(USER_LIB_PATH ${CMAKE_SOURCE_DIR}/lib)
 add_arduino_user_library(${PROJECT_NAME}.elf joeyoung-Keypad_I2C ${USER_LIB_PATH} src)
 add_arduino_user_library(${PROJECT_NAME}.elf Keypad ${USER_LIB_PATH} src)
 add_arduino_user_library(${PROJECT_NAME}.elf johnrickman-LiquidCrystal_I2C ${USER_LIB_PATH})
+add_arduino_user_library(${PROJECT_NAME}.elf PCF8574 ${USER_LIB_PATH})
 
 # Generate HEX file
 add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
