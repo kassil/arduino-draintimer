@@ -46,7 +46,6 @@ constexpr uint8_t rs = 4, en = 5, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 #endif
 
-unsigned long next_draw_time = 0;
 
 // What function we call in our loop.  This changes with the state.
 void (*loop_function)();
@@ -91,12 +90,8 @@ void setup()
     { /*wait*/
     }
 
-    //timer_init();
     mainmenu_enter();
 
-    // Serial.print(F("Boot "));
-    // Serial.print(switch_millis);
-    // Serial.println(F(" ms"));
     digitalWrite(LED_BUILTIN, LOW); // Turn the LED off.
 }
 
