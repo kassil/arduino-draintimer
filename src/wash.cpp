@@ -1,4 +1,5 @@
 #include "wash.h"
+#include "heating.h"
 #include "main.h"
 #include "utils.h"
 #include <Arduino.h>
@@ -176,6 +177,7 @@ void fill_loop()
         if (i_cycle <= n_soap)
         {
             print_cycle_wash();
+            dispense_init();  // Enable dispenser
             end_millis = now + 4500;
         }
         else
@@ -185,8 +187,8 @@ void fill_loop()
         }
         print_stage(Stage::Pump);
         relays.write8(~(Relays::Pilot | Relays::WashMotor | Relays::HeaterL | Relays::HeaterN));
-        //TODO Enable dispensor if washing
-        //TODO Enable heating PID control
+        // Start controlling the heater
+        heating_init();
         substate_loop = pump_loop;
     }
     else
@@ -204,7 +206,13 @@ void pump_loop()
     }
     else
     {
-        //TODO Heat
+        // Control the heater
+        heating_loop();
+        if (i_cycle <= n_soap)
+        {
+            // Dispense soap
+            dispense_loop();
+        }
         print_remain(now);
     }
 }
