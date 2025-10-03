@@ -1,5 +1,5 @@
 #include "diags.h"
-#include "drain_timer.h"
+#include "main.h"
 #include "menu.h"
 #include "utils.h"
 #include <Arduino.h>

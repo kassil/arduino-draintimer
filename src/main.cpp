@@ -1,6 +1,6 @@
 #define LCD_I2C
 
-#include "drain_timer.h"
+#include "main.h"
 #include "diags.h"
 #include "menu.h"
 #include "monitor.h"

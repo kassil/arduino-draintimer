@@ -28,4 +28,5 @@ enum Relays {
 // What function we call in our loop.  This changes with the state.
 extern void (*loop_function)();
 
+// Enter the main menu
 void mainmenu_enter();
