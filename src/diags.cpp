@@ -1,6 +1,7 @@
 #include "diags.h"
 #include "main.h"
 #include "menu.h"
+#include "heating.h"
 #include "utils.h"
 #include <Arduino.h>
 #include <Keypad_I2C.h>
@@ -80,15 +81,33 @@ void diags_sensors_enter()
 
 void diags_sensor_loop()
 {
-    //TODO We could break this up into iterations
-    uint16_t a;
-    a = analog_mean(A0, 1024);
-    lcd.setCursor(5, 1);
-    lcd_print_right_justify(a, 5);
-    a = analog_mean(A1, 1024);
-    lcd.setCursor(5, 2);
-    lcd_print_right_justify(a, 5);
-
+    // Show raw ADC and temperature (one decimal)
+    for (uint8_t row = 0; row < 2; ++row) {
+        lcd.setCursor(0, row + 1);
+        lcd.print(F("ADC"));
+        lcd.print(row);
+        uint16_t a = analog_mean(row, 1024);
+        lcd.setCursor(5, row + 1);
+        lcd_print_right_justify(a, 5);
+        // Print temperature in Celsius
+        float c = adc_to_celsius(a);
+        lcd.setCursor(12, row + 1);
+        if (c < -9.95f) {
+            lcd.print(F("---"));
+        } else if (c > 99.95f) {
+            lcd.print(F("+++"));
+        } else {
+            // Print with one decimal place
+            int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));
+            int16_t whole = temp_int / 10;
+            int16_t frac = abs(temp_int % 10);
+            lcd.print(whole);
+            lcd.print(F("."));
+            lcd.print(frac);
+            lcd.print(F("C"));
+        }
+    }
+    // Service keypad
     char const customKey = customKeypad.getKey();
     if (customKey == '#')
     {
