@@ -1,5 +1,7 @@
 #include "utils.h"
 #include "main.h"
+#include "faults.h"
+#include <PCF8574.h>
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 
@@ -63,4 +65,23 @@ void pilot_on()
 void pilot_off()
 {
     digitalWrite(PILOT_PIN, HIGH); // Pilot OFF (inactive)
+}
+
+void check_relay_error_and_fault()
+{
+    // The PCF8574 library sets an internal _error value. lastError() clears
+    // it when read. This helper reads and clears the error state — subsequent
+    // checks won't see the same error unless it reoccurs.
+    int err = relays.lastError();
+    if (err != PCF8574_OK)
+    {
+        Serial.print(F("PCF8574 error: "));
+        Serial.println(err);
+        lcd.clear();
+        lcd.print(F("FAULT: RELAY I2C"));
+        lcd.setCursor(0, 1);
+        lcd.print(F("Code "));
+        lcd.print(err);
+        faultmenu_enter();
+    }
 }

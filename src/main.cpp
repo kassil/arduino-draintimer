@@ -106,6 +106,7 @@ void setup()
     constexpr bool was_wdt_reset = false;  //TBD
     if (was_wdt_reset)
     {
+        lcd.print(F("FAULT: WDOG"));
         faultmenu_enter();
         //TODO Should we blink the LED to indicate a watchdog reset? --- IGNORE ---
         //TODO Should we enable the watchdog again after the fault menu? --- IGNORE ---
@@ -121,6 +122,7 @@ void setup()
 void loop()
 {
     loop_function();
+    check_relay_error_and_fault();
     wdt_reset(); // "feed" the watchdog so it doesn't reset the MCU
 }
 
