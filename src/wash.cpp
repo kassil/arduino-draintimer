@@ -61,6 +61,7 @@ void delay_cycle_enter(unsigned long delay, uint8_t n_soap_, uint8_t n_rinse_)
     i_cycle = 1;
     if (delay)
     {
+        // Turn all off?
         lcd.clear();
         lcd.print(F("Delay Start"));
         substate_loop = delay_loop;
@@ -132,6 +133,9 @@ void paused_loop()
         lcd.setCursor(0, 3);
         lcd.print(F("                    "));
         loop_function = cycle_loop;
+        // Pilot on again
+        // TODO Turn on relays
+        pilot_on();
     }
     else if (customKey == '#')
     {
@@ -155,7 +159,7 @@ void wash_enter()
     print_stage(Stage::Fill);
     // Enable pilot and fill solenoid. Pilot is active-low on a dedicated GPIO.
     pilot_on();
-    relays.write8(~(Relays::FillSolenoid));
+    relays.write8(~(1<<Relays::FillSolenoid));
     const auto now = millis();
     end_millis = now + FILL_TIME_MS;
     substate_loop = fill_loop;
@@ -167,7 +171,7 @@ void rinse_enter()
     print_cycle_rinse();
     print_stage(Stage::Fill);
     pilot_on();
-    relays.write8(~(Relays::FillSolenoid));
+    relays.write8(~(1<<Relays::FillSolenoid));
     const auto now = millis();
     end_millis = now + FILL_TIME_MS;
     substate_loop = fill_loop;
@@ -191,9 +195,9 @@ void fill_loop()
             end_millis = now + 2500;
         }
         print_stage(Stage::Pump);
-    // Ensure pilot is on, then enable the other relays (active low on expander).
-    pilot_on();
-    relays.write8(~(Relays::WashMotor | Relays::HeaterL | Relays::HeaterN));
+        // Ensure pilot is on, then enable the other relays.
+        pilot_on();
+        relays.write8(~(1<<Relays::WashMotor /*| 1<<Relays::HeaterL | 1<<Relays::HeaterN)*/));
         // Start controlling the heater
         heating_init();
         substate_loop = pump_loop;
@@ -217,7 +221,7 @@ void pump_loop()
         heating_loop();
         if (i_cycle <= n_soap)
         {
-            // Dispense soap
+            // Wash: Dispense soap
             dispense_loop();
         }
         print_remain(now);
@@ -243,7 +247,7 @@ void drain_enter()
     print_stage(Stage::Drain);
     // Turn on pilot and drain motor
     pilot_on();
-    relays.write8(~(Relays::DrainMotor));
+    relays.write8(~(1<<Relays::DrainMotor));
     const auto now = millis();
     end_millis = now + 2500;
     substate_loop = drain_loop;
@@ -266,6 +270,8 @@ void drain_loop()
         }
         else // no more cycles
         {
+            pilot_off();
+            relays.write8(0xFF);
             // Wait for user
             lcd.clear();
             lcd.print(F("Cycle complete"));
