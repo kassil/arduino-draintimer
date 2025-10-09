@@ -143,6 +143,8 @@ void paused_loop()
         lcd.print(F("Press *"));
         loop_function = cycle_complete_loop;
         Serial.print(F("Cancelled"));
+        // Ensure pilot is turned off when cancelling
+        pilot_off();
     }
 }
 
@@ -151,7 +153,9 @@ void wash_enter()
     // Start filling
     print_cycle_wash();
     print_stage(Stage::Fill);
-    relays.write8(~(Relays::Pilot | Relays::FillSolenoid));
+    // Enable pilot and fill solenoid. Pilot is active-low on a dedicated GPIO.
+    pilot_on();
+    relays.write8(~(Relays::FillSolenoid));
     const auto now = millis();
     end_millis = now + FILL_TIME_MS;
     substate_loop = fill_loop;
@@ -162,7 +166,8 @@ void rinse_enter()
     // Start filling
     print_cycle_rinse();
     print_stage(Stage::Fill);
-    relays.write8(~(Relays::Pilot | Relays::FillSolenoid));
+    pilot_on();
+    relays.write8(~(Relays::FillSolenoid));
     const auto now = millis();
     end_millis = now + FILL_TIME_MS;
     substate_loop = fill_loop;
@@ -186,7 +191,9 @@ void fill_loop()
             end_millis = now + 2500;
         }
         print_stage(Stage::Pump);
-        relays.write8(~(Relays::Pilot | Relays::WashMotor | Relays::HeaterL | Relays::HeaterN));
+    // Ensure pilot is on, then enable the other relays (active low on expander).
+    pilot_on();
+    relays.write8(~(Relays::WashMotor | Relays::HeaterL | Relays::HeaterN));
         // Start controlling the heater
         heating_init();
         substate_loop = pump_loop;
@@ -234,7 +241,9 @@ void drain_enter()
         lcd.clear();
     }
     print_stage(Stage::Drain);
-    relays.write8(~(Relays::Pilot | Relays::DrainMotor));
+    // Turn on pilot and drain motor
+    pilot_on();
+    relays.write8(~(Relays::DrainMotor));
     const auto now = millis();
     end_millis = now + 2500;
     substate_loop = drain_loop;

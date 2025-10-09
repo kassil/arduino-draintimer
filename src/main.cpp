@@ -4,6 +4,7 @@
 #include "diags.h"
 #include "menu.h"
 #include "monitor.h"
+#include "utils.h"
 #include "wash.h"
 
 #include <Arduino.h>
@@ -76,10 +77,10 @@ void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH); // Turn the LED on.
+    pilot_init();
 
     Wire.begin(); // GDY200622
     Serial.begin(115200);
-
     relays.begin();  // all relays off (active low boards)
 
     // set up the LCD's number of columns and rows:
@@ -91,6 +92,7 @@ void setup()
 #endif
 
     customKeypad.begin(); // GDY120705
+    relays.write8(0xFF); // All relays off (active low)
 
     while (!Serial)
     { /*wait*/
@@ -100,6 +102,7 @@ void setup()
 
     digitalWrite(LED_BUILTIN, LOW); // Turn the LED off.
 }
+
 
 void loop()
 {
@@ -111,7 +114,7 @@ void mainmenu_enter()
     menu_enter(mainmenu_n_items, mainmenu_labels, mainmenu_select);
 }
 
-void mainmenu_select(uint8_t menu_idx)
+static void mainmenu_select(uint8_t menu_idx)
 {
     Serial.print(F("mm sel "));
     Serial.println(menu_idx);

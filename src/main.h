@@ -15,12 +15,12 @@ extern Keypad_I2C customKeypad;
 extern LiquidCrystal_I2C lcd;
 extern PCF8574 relays;
 
+// Active low
 enum Relays {
     FillSolenoid,
     Dispenser,
     WashMotor,
     DrainMotor,
-    Pilot,
     HeaterL,
     HeaterN,
 };
