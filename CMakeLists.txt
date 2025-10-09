@@ -118,6 +118,7 @@ target_compile_options(${PROJECT_NAME}.elf PRIVATE
 target_link_options(${PROJECT_NAME}.elf PRIVATE
     -mmcu=${MCU}
     -Wl,--gc-sections
+    -Wl,-Map,${PROJECT_NAME}.map
     -flto
 )
 
@@ -137,6 +138,24 @@ add_arduino_user_library(${PROJECT_NAME}.elf PCF8574 ${USER_LIB_PATH})
 add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex -R .eeprom ${PROJECT_NAME}.elf ${PROJECT_NAME}.hex
     COMMAND ${CMAKE_SIZE} ${PROJECT_NAME}.elf
+)
+
+# Generate an assembly listing (.lss) and a symbol/nm dump after link.
+# Use avr-objdump (fallback to 'objdump' if not found). We run via /bin/sh
+# so we can redirect output into files.
+find_program(AVR_OBJDUMP_EXEC NAMES avr-objdump objdump)
+if(NOT AVR_OBJDUMP_EXEC)
+    set(AVR_OBJDUMP_EXEC avr-objdump)
+endif()
+
+add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
+    # Use a small helper script to produce the listing and symbol dump so
+    # the generated Makefile doesn't end up with wrapped/quoted lines that
+    # cause stray leading spaces in filenames.
+    COMMAND ${CMAKE_COMMAND} -E env AVR_OBJDUMP_EXEC=${AVR_OBJDUMP_EXEC} ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}
+    COMMAND ${CMAKE_COMMAND} -E echo 'Generating assembly listing (.lss) and symbol dump (.sym) from ELF'
+    COMMAND ${CMAKE_COMMAND} -E env OBJDUMP=${AVR_OBJDUMP_EXEC} ${CMAKE_SOURCE_DIR}/tools/gen_listing.sh ${AVR_OBJDUMP_EXEC} $<TARGET_FILE:${PROJECT_NAME}.elf> ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.lss ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.sym
+    COMMENT "Generating assembly listing (.lss) and symbol dump (.sym) from ELF"
 )
 
 # Flash target (change /dev/ttyACM0 if needed)
