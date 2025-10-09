@@ -2,6 +2,7 @@
 
 #include "main.h"
 #include "diags.h"
+#include "faults.h"
 #include "menu.h"
 #include "monitor.h"
 #include "utils.h"
@@ -17,6 +18,7 @@
 #endif
 #include <PCF8574.h>
 #include <Wire.h>
+#include <avr/wdt.h>
 #include <stdint.h>
 
 static void mainmenu_select(uint8_t menu_idx);
@@ -76,7 +78,7 @@ const char *const mainmenu_labels[mainmenu_n_items] PROGMEM = {
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, HIGH); // Turn the LED on.
+    digitalWrite(LED_BUILTIN, HIGH); // Turn the LED on for boot-up
     pilot_init();
 
     Wire.begin(); // GDY200622
@@ -98,15 +100,28 @@ void setup()
     { /*wait*/
     }
 
-    mainmenu_enter();
-
-    digitalWrite(LED_BUILTIN, LOW); // Turn the LED off.
+    // Enable a one-second watchdog timeout after setup and any blocking waits
+    // so the watchdog doesn't reset the MCU while we're waiting for Serial
+    // or other startup events.
+    constexpr bool was_wdt_reset = false;  //TBD
+    if (was_wdt_reset)
+    {
+        faultmenu_enter();
+        //TODO Should we blink the LED to indicate a watchdog reset? --- IGNORE ---
+        //TODO Should we enable the watchdog again after the fault menu? --- IGNORE ---
+    }
+    else
+    {
+        mainmenu_enter();
+        digitalWrite(LED_BUILTIN, LOW); // Turn the LED off.
+    }
+    wdt_enable(WDTO_1S);
 }
-
 
 void loop()
 {
     loop_function();
+    wdt_reset(); // "feed" the watchdog so it doesn't reset the MCU
 }
 
 void mainmenu_enter()
