@@ -17,7 +17,7 @@ static uint16_t analog_mean(uint8_t pin, uint16_t samples);
 static constexpr byte menu_n_items = 6;
 static const char menu_labels_0[] PROGMEM = "to Main Menu";
 static const char menu_labels_1[] PROGMEM = "Sensors";
-static const char menu_labels_2[] PROGMEM = "--";
+static const char menu_labels_2[] PROGMEM = "Watchdog Test";
 static const char menu_labels_3[] PROGMEM = "--";
 static const char menu_labels_4[] PROGMEM = "--";
 static const char menu_labels_5[] PROGMEM = "--";
@@ -49,6 +49,11 @@ void diagsmenu_select(uint8_t menu_idx)
     }
     else if (menu_idx == 2)
     {
+        Serial.println(F("Watchdog Test"));
+        // Intentionally do not reset the watchdog, so it will trigger
+        // and reset the MCU in about one second.
+        while (true)
+        { /*wait*/ }
     }
     else if (menu_idx == 3)
     {
