@@ -24,15 +24,15 @@ constexpr uint32_t SAMPLE_COUNT = 64u;
 // These static_asserts help trap misconfiguration early and document expectations.
 static_assert(SAMPLE_COUNT != 0, "SAMPLE_COUNT must be > 0");
 static_assert((SAMPLE_COUNT & (SAMPLE_COUNT - 1)) == 0, "SAMPLE_COUNT must be a power of two");
-constexpr double ADC_MAX = 1023.0;
-constexpr double VREF = 5.0; // ADC reference voltage (set to Vcc by default)
 // - ADC_MAX/VREF and thermistor constants must be positive
+constexpr float ADC_MAX = 1023.0;
+constexpr float VREF = 5.0; // ADC reference voltage (set to Vcc by default)
 static_assert(ADC_MAX > 0.0, "ADC_MAX must be positive");
 static_assert(VREF > 0.0, "VREF must be positive");
 
 // Temperature control thresholds (degrees Celsius)
-constexpr double TEMP_THRESHOLD_C = 60.0; // target water temp, adjust as needed
-constexpr double TEMP_HYSTERESIS_C = 2.0; // degrees C
+constexpr float TEMP_THRESHOLD_C = 60.0f; // target water temp, adjust as needed
+constexpr float TEMP_HYSTERESIS_C = 2.0f; // degrees C
 static_assert(TEMP_HYSTERESIS_C >= 0.0 && TEMP_HYSTERESIS_C < 20.0, "TEMP_HYSTERESIS_C out of expected range");
 static_assert(TEMP_THRESHOLD_C > -40.0 && TEMP_THRESHOLD_C < 130.0, "TEMP_THRESHOLD_C out of expected range");
 static_assert(TEMP_HYSTERESIS_C < TEMP_THRESHOLD_C + 273.15, "Hysteresis must be less than threshold range");
@@ -42,12 +42,12 @@ static_assert(TEMP_HYSTERESIS_C < TEMP_THRESHOLD_C + 273.15, "Hysteresis must be
 // In lieu of a thermistor, attach a three-wire potentiometer
 // Linear mapping 0 -> 85, ADC_MAX -> -5°C
 // The inverse relationship counts/temperature follows that of thermistor
-constexpr double ADC_POT_TEMP_MIN_C = -5.0;  // coldest temp
-constexpr double ADC_POT_TEMP_MAX_C = 85.0;  // hottest temp
-static constexpr double ADC_POT_TEMP_RANGE = (ADC_POT_TEMP_MAX_C - ADC_POT_TEMP_MIN_C);
+constexpr float ADC_POT_TEMP_MIN_C = -5.0f;  // coldest temp
+constexpr float ADC_POT_TEMP_MAX_C = 85.0f;  // hottest temp
+static constexpr float ADC_POT_TEMP_RANGE = (ADC_POT_TEMP_MAX_C - ADC_POT_TEMP_MIN_C);
 
 // Linear constexpr inverse: temp -> ADC (for compile-time thresholds)
-static constexpr uint16_t temp_to_adc_linear(double tempC) {
+static constexpr uint16_t temp_to_adc_linear(float tempC) {
     return (tempC <= ADC_POT_TEMP_MIN_C) ? static_cast<uint16_t>(ADC_MAX)
          : (tempC >= ADC_POT_TEMP_MAX_C) ? 0
          : static_cast<uint16_t>(((ADC_POT_TEMP_MAX_C - tempC) / ADC_POT_TEMP_RANGE) * ADC_MAX + 0.5);
@@ -73,10 +73,10 @@ float adc_to_celsius(uint16_t adc)
 // Vout (A0) is between them.
 
 // Change these values to match your thermistor and series resistor.
-constexpr double SERIES_RESISTOR = 10000.0; // ohms
-constexpr double THERMISTOR_R0 = 10000.0;   // ohms @ T0
-constexpr double THERMISTOR_BETA = 3950.0;  // Beta parameter
-constexpr double THERMISTOR_T0_K = 25.0 + 273.15;
+constexpr float SERIES_RESISTOR = 10000.0f; // ohms
+constexpr float THERMISTOR_R0 = 10000.0f;   // ohms @ T0
+constexpr float THERMISTOR_BETA = 3950.0f;  // Beta parameter
+constexpr float THERMISTOR_T0_K = 25.0f + 273.15f;
 
 // Static sanity checks
 // - Beta must be in a plausible range for NTC thermistors
@@ -90,18 +90,18 @@ static_assert(THERMISTOR_BETA > 0.0 && THERMISTOR_BETA < 20000.0, "THERMISTOR_BE
 // Simple constexpr-friendly exponential approximation using a truncated Taylor
 // series evaluated in Horner form.  Approximates e^x ≈ 1 + x + x^2/2! + ...
 // Horner form reduces multiplies/adds and is constexpr-friendly.
-static constexpr double exp_constexpr(double x) {
-    return 1.0 + x*(1.0 + x*(0.5 + x*(0.16666666666666666 + x*(0.041666666666666664 + x*(0.008333333333333333 + x*(0.001388888888888889))))));
+static constexpr float exp_constexpr(float x) {
+    return 1.0f + x*(1.0f + x*(0.5f + x*(0.16666667f + x*(0.041666667f + x*(0.008333333f + x*(0.001388889f))))));
 }
 
 // Constexpr version of temp -> ADC conversion
 // Steps: exponent = B*(1/T - 1/T0); R = R0 * e^{exponent};
 // Vout = Vref * R/(R + Rseries); ADC = (Vout / Vref) * ADC_MAX.
-static constexpr uint16_t temp_to_adc_constexpr(double tempC) {
+static constexpr uint16_t temp_to_adc_constexpr(float tempC) {
     return static_cast<uint16_t>(
-        ((THERMISTOR_R0 * exp_constexpr(THERMISTOR_BETA * (1.0 / (tempC + 273.15) - 1.0 / THERMISTOR_T0_K)))
-         / ((THERMISTOR_R0 * exp_constexpr(THERMISTOR_BETA * (1.0 / (tempC + 273.15) - 1.0 / THERMISTOR_T0_K))) + SERIES_RESISTOR))
-        * ADC_MAX + 0.5);
+        ((THERMISTOR_R0 * exp_constexpr(THERMISTOR_BETA * (1.0f / (tempC + 273.15f) - 1.0f / THERMISTOR_T0_K)))
+         / ((THERMISTOR_R0 * exp_constexpr(THERMISTOR_BETA * (1.0f / (tempC + 273.15f) - 1.0f / THERMISTOR_T0_K))) + SERIES_RESISTOR))
+        * ADC_MAX + 0.5f);
 }
 
 // Compile-time ADC thresholds
