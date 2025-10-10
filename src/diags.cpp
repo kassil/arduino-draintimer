@@ -103,7 +103,14 @@ void diags_heating_enter()
 void diags_heating_loop()
 {
     // Show raw ADC and temperature (one decimal)
-    print_temperature(0);
+    static uint8_t last_time = 0;
+    uint8_t now = millis() / 1000;
+    if (now != last_time)
+    {
+        last_time = now;
+        print_temperature(0);
+    }
+
     auto relayState = relays.valueOut();
     //Serial.print(F("R:"));
     //Serial.println(relayState, BIN);
@@ -121,7 +128,8 @@ void diags_heating_loop()
     // Wash: Dispense soap
     // Problem: It takes awhile to get our first analog sample. In that time the heater
     // is off.  The dispenser thinks the water is warm.
-    if (dispense_loop(relayState) == LOW)
+    uint16_t temp_raw;
+    if (calc_analog_mean(0, temp_raw) && dispense_loop(temp_raw)== LOW)
     {
         relayState &= ~(1 << Relays::Dispenser);  // On
     }
@@ -198,17 +206,17 @@ void diags_relay_loop()
 // Show raw ADC and temperature (one decimal)
 void print_temperature(uint8_t const row)
 {
-    uint16_t a;
-    if (!calc_analog_mean(row, a)) {
+    uint16_t adc;
+    if (!calc_analog_mean(row, adc)) {
         return;
     }
     lcd.setCursor(0, row + 1);
     lcd.print(F("ADC"));
     lcd.print(row);
     lcd.setCursor(5, row + 1);
-    lcd_print_right_justify(a, 5);
+    lcd_print_right_justify(adc, 5);
     // Print temperature in Celsius
-    float c = adc_to_celsius(a);
+    float c = adc_to_celsius(adc);
     lcd.setCursor(12, row + 1);
     if (c < -9.95f) {
         lcd.print(F("---"));

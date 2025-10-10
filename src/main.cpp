@@ -122,6 +122,8 @@ void setup()
 void loop()
 {
     loop_function();
+    // TODO If we enter the fault menu, we need to disable further checks
+    //if (loop_function != faultmenu_loop) {}
     check_relay_error_and_fault();
     wdt_reset(); // "feed" the watchdog so it doesn't reset the MCU
 }
