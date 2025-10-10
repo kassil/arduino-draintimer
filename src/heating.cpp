@@ -143,14 +143,14 @@ void heating_init()
     relays.write(Relays::HeaterN, HIGH);
 }
 
-void heating_loop()
+uint8_t heating_loop(uint8_t heaterState)
 {
     if (h_data.temp_n < SAMPLE_COUNT)
     {
         // Accumulate exactly SAMPLE_COUNT samples then evaluate.
         h_data.temp_mean += analogRead(A0);
         h_data.temp_n++;
-        return;
+        return heaterState; // no change yet
     }
 
     // We have SAMPLE_COUNT samples accumulated.
@@ -159,18 +159,11 @@ void heating_loop()
     h_data.temp_n = 0;
     h_data.temp_mean = 0;
 
-    uint8_t heaterState = relays.read(Relays::HeaterL);
-    uint8_t heaterCommand = heaterState;
-
     // Safety: if ADC is 0 (short to GND) or saturated at ADC full-scale (open circuit),
     // treat as sensor fault and force heater OFF to avoid unsafe operation.
-    if (adc_mean == 0u || adc_mean == 1023u) {
-        if (heaterState != HIGH) {
-            //Serial.println(F("THERM"));
-            relays.write(Relays::HeaterL, HIGH);
-            relays.write(Relays::HeaterN, HIGH);
-        }
-        return;
+    if (adc_mean == 0u || adc_mean == 1023u)
+    {
+        return HIGH; // turn off
     }
 
     // Compare using precomputed ADC thresholds (integer math, cheap)
@@ -179,21 +172,16 @@ void heating_loop()
         // Heater currently ON (active low). Turn OFF when measured ADC indicates temperature
         // has risen above threshold + hysteresis (i.e. ADC has dropped below adc_off_threshold).
         if (adc_mean <= adc_off_threshold)
-            heaterCommand = HIGH; // turn off
+            return HIGH; // turn off
     }
     else
     {
         // Heater currently OFF. Turn ON when ADC indicates temperature has fallen below threshold - hysteresis
         // (i.e. ADC is above adc_on_threshold because ADC increases as temperature decreases).
         if (adc_mean >= adc_on_threshold)
-            heaterCommand = LOW; // turn on
+            return LOW; // turn on
     }
-
-    if (heaterCommand != heaterState)
-    {
-        relays.write(Relays::HeaterL, heaterCommand);
-        relays.write(Relays::HeaterN, heaterCommand);
-    }
+    return heaterState;  // No change
 }
 
 void dispense_init()
@@ -202,17 +190,17 @@ void dispense_init()
     relays.write(Relays::Dispenser, HIGH);
 }
 
-void dispense_loop()
+uint8_t dispense_loop(uint8_t relayState)
 {
     if (dispense_data.state == DispenseState::Heating)
     {
         // Waiting for water to heat
-        if ((relays.valueOut() & (1 << Relays::HeaterL)) == 0)
+        if ((relayState & (1 << Relays::HeaterL)) == 0)
         {
             // Dispense
             dispense_data.state = DispenseState::Dispensing;
             dispense_data.end_time = millis() + DISPENSE_DURATION_MS;
-            relays.write(Relays::Dispenser, LOW);
+            relayState &= ~(1<<Relays::Dispenser); // Turn on
         }
     }
     else if (dispense_data.state == DispenseState::Dispensing)
@@ -222,7 +210,8 @@ void dispense_loop()
         {
             // Finish dispensing
             dispense_data.state = DispenseState::Done;
-            relays.write(Relays::Dispenser, HIGH);
+            relayState |= (1<<Relays::Dispenser); // Turn off
         }
     }
+    return relayState;
 }
