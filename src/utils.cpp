@@ -81,7 +81,7 @@ void check_relay_error_and_fault()
         lcd.print(F("FAULT: RELAY I2C"));
         lcd.setCursor(0, 1);
         lcd.print(F("Code "));
-        lcd.print(err);
+        lcd.print(err, HEX);
         faultmenu_enter();
     }
 }

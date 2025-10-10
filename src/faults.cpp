@@ -18,8 +18,6 @@ void faultmenu_enter()
     digitalWrite(LED_BUILTIN, HIGH);
     last_blink = millis();
 
-    lcd.setCursor(0, 1);
-    lcd.print(F("Fail Safe Mode"));
     lcd.setCursor(0, 3);
     lcd.print(F("# to continue"));
 
