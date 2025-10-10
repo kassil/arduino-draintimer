@@ -73,10 +73,13 @@ float adc_to_celsius(uint16_t adc)
 // Vout (A0) is between them.
 
 // Change these values to match your thermistor and series resistor.
-constexpr float SERIES_RESISTOR = 10000.0f; // ohms
-constexpr float THERMISTOR_R0 = 10000.0f;   // ohms @ T0
+constexpr float THERMISTOR_R0 = 100000.0f;   // ohms @ T0
 constexpr float THERMISTOR_BETA = 3950.0f;  // Beta parameter
 constexpr float THERMISTOR_T0_K = 25.0f + 273.15f;
+constexpr float SERIES_RESISTOR = 68000.0f; // ohms
+Thermistor R0=100000 B=3950 T0=25C
+// Temp range:  -5 C    85 C
+// ADC range:    141     886
 
 // Static sanity checks
 // - Beta must be in a plausible range for NTC thermistors
