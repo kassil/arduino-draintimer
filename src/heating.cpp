@@ -19,21 +19,14 @@ constexpr uint32_t SAMPLE_COUNT = 64u;
 // Build-time checks and documentation
 // -------------------------------
 // We want several properties guaranteed at compile time:
-// - SAMPLE_COUNT must be non-zero and a power of two (we rely on shift/div properties elsewhere)
-// - ADC_MAX/VREF and thermistor constants must be positive
+// - SAMPLE_COUNT must be a power of two (for shift/div)
 // - TEMP thresholds must be in a reasonable range and hysteresis smaller than threshold
-// - Beta must be in a plausible range for NTC thermistors
 // These static_asserts help trap misconfiguration early and document expectations.
 static_assert(SAMPLE_COUNT != 0, "SAMPLE_COUNT must be > 0");
 static_assert((SAMPLE_COUNT & (SAMPLE_COUNT - 1)) == 0, "SAMPLE_COUNT must be a power of two");
-// Thermistor / ADC configuration
-// Assumptions:
-// - Thermistor is connected as a divider between GND and VCC with the
-//   fixed resistor (SERIES_RESISTOR) connected to VCC and the thermistor to GND.
-//   Vout (A0) is between them. If your wiring differs, swap the math below or
-//   adjust SERIES_RESISTOR accordingly.
 constexpr double ADC_MAX = 1023.0;
 constexpr double VREF = 5.0; // ADC reference voltage (set to Vcc by default)
+// - ADC_MAX/VREF and thermistor constants must be positive
 static_assert(ADC_MAX > 0.0, "ADC_MAX must be positive");
 static_assert(VREF > 0.0, "VREF must be positive");
 
@@ -46,19 +39,23 @@ static_assert(TEMP_HYSTERESIS_C < TEMP_THRESHOLD_C + 273.15, "Hysteresis must be
 
 #ifdef ADC_POT_MODE
 
-// POT mode: linear mapping 0 -> -10°C, ADC_MAX -> 110°C
-constexpr double ADC_POT_TEMP_MIN_C = -10.0;
-constexpr double ADC_POT_TEMP_MAX_C = 110.0;
+// In lieu of a thermistor, attach a three-wire potentiometer
+// Linear mapping 0 -> 85, ADC_MAX -> -5°C
+// The inverse relationship counts/temperature follows that of thermistor
+constexpr double ADC_POT_TEMP_MIN_C = -5.0;  // coldest temp
+constexpr double ADC_POT_TEMP_MAX_C = 85.0;  // hottest temp
 static constexpr double ADC_POT_TEMP_RANGE = (ADC_POT_TEMP_MAX_C - ADC_POT_TEMP_MIN_C);
 
 // Linear constexpr inverse: temp -> ADC (for compile-time thresholds)
 static constexpr uint16_t temp_to_adc_linear(double tempC) {
-    return (tempC <= ADC_POT_TEMP_MIN_C) ? 0
-         : (tempC >= ADC_POT_TEMP_MAX_C) ? static_cast<uint16_t>(ADC_MAX)
-         : static_cast<uint16_t>(((tempC - ADC_POT_TEMP_MIN_C) / ADC_POT_TEMP_RANGE) * ADC_MAX + 0.5);
+    return (tempC <= ADC_POT_TEMP_MIN_C) ? static_cast<uint16_t>(ADC_MAX)
+         : (tempC >= ADC_POT_TEMP_MAX_C) ? 0
+         : static_cast<uint16_t>(((ADC_POT_TEMP_MAX_C - tempC) / ADC_POT_TEMP_RANGE) * ADC_MAX + 0.5);
 }
 
+// Turn off heating above this ADC reading
 static constexpr uint16_t adc_off_threshold = temp_to_adc_linear(TEMP_THRESHOLD_C + TEMP_HYSTERESIS_C);
+// Turn on heating above this ADC reading
 static constexpr uint16_t adc_on_threshold  = temp_to_adc_linear(TEMP_THRESHOLD_C - TEMP_HYSTERESIS_C);
 
 // POT_MODE: linear mapping ADC(0..ADC_MAX) -> Celsius (-10..110)
@@ -71,6 +68,10 @@ float adc_to_celsius(uint16_t adc)
 
 #else
 
+// Thermistor is connected as a divider between GND and VCC with the
+// fixed resistor (SERIES_RESISTOR) connected to VCC and the thermistor to GND.
+// Vout (A0) is between them.
+
 // Change these values to match your thermistor and series resistor.
 constexpr double SERIES_RESISTOR = 10000.0; // ohms
 constexpr double THERMISTOR_R0 = 10000.0;   // ohms @ T0
@@ -78,6 +79,7 @@ constexpr double THERMISTOR_BETA = 3950.0;  // Beta parameter
 constexpr double THERMISTOR_T0_K = 25.0 + 273.15;
 
 // Static sanity checks
+// - Beta must be in a plausible range for NTC thermistors
 static_assert(SERIES_RESISTOR > 0.0, "SERIES_RESISTOR must be positive");
 static_assert(THERMISTOR_R0 > 0.0, "THERMISTOR_R0 must be positive");
 static_assert(THERMISTOR_BETA > 0.0 && THERMISTOR_BETA < 20000.0, "THERMISTOR_BETA out of expected range");
@@ -103,11 +105,10 @@ static constexpr uint16_t temp_to_adc_constexpr(double tempC) {
 }
 
 // Compile-time ADC thresholds
-constexpr double POT_TEMP_MAX = 100.0; // pot 0 -> 0°C, pot 1023 -> 100°C
+// Turn off heating above this ADC reading
 static constexpr uint16_t adc_off_threshold = static_cast<uint16_t>(((TEMP_THRESHOLD_C + TEMP_HYSTERESIS_C) / POT_TEMP_MAX) * ADC_MAX + 0.5);
+// Turn on heating above this ADC reading
 static constexpr uint16_t adc_on_threshold  = static_cast<uint16_t>(((TEMP_THRESHOLD_C - TEMP_HYSTERESIS_C) / POT_TEMP_MAX) * ADC_MAX + 0.5);
-
-
 
 // Convert averaged ADC reading (0..1023) to thermistor resistance (ohms)
 // From divider: Vout = Vref * Rth/(Rseries + Rth) => Rth = Rseries * (Vref/Vout - 1).
