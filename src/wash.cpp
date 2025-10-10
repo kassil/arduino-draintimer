@@ -233,11 +233,24 @@ void pump_loop()
             // Heater ON (active low)
             relayState &= (1 << Relays::HeaterL) | (1 << Relays::HeaterN);
         }
+        else
+        {
+            // Heater OFF
+            relayState |= (1 << Relays::HeaterL) | (1 << Relays::HeaterN);
+        }
 
         if (i_cycle <= n_soap)
         {
             // Wash: Dispense soap
-            relayState = dispense_loop(relayState);
+            auto temp_adc = analogRead(0); // TODO Average
+            if(dispense_loop(temp_adc) == LOW)
+            {
+                relayState &= ~(1 << Relays::Dispenser);  // On
+            }
+            else
+            {
+                relayState |= (1 << Relays::Dispenser);  // Off
+            }
         }
         relays.write8(relayState);
         print_remain(now);

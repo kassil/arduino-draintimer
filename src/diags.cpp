@@ -12,15 +12,15 @@
 
 // Menu callback
 static void diagsmenu_select(uint8_t menu_idx);
-static void diags_sensors_enter();
-static void diags_sensor_loop();
+static void diags_heating_enter();
+static void diags_heating_loop();
 static void diags_relay_enter();
 static void diags_relay_loop();
-static uint16_t analog_mean(uint8_t pin, uint16_t samples);
+static void print_temperature(uint8_t const row);
 
 static constexpr byte menu_n_items = 4;
 static const char menu_labels_0[] PROGMEM = "to Main Menu";
-static const char menu_labels_1[] PROGMEM = "Sensors";
+static const char menu_labels_1[] PROGMEM = "Heating";
 static const char menu_labels_2[] PROGMEM = "Watchdog Test";
 static const char menu_labels_3[] PROGMEM = "Relays Test";
 static const char *const menu_labels[menu_n_items] PROGMEM = {
@@ -60,7 +60,7 @@ void diagsmenu_select(uint8_t menu_idx)
     }
     else if (menu_idx == 1)
     {
-        diags_sensors_enter();
+        diags_heating_enter();
     }
     else if (menu_idx == 2)
     {
@@ -86,48 +86,62 @@ void diagsmenu_select(uint8_t menu_idx)
     }
 }
 
-void diags_sensors_enter()
+void diags_heating_enter()
 {
+    relays.write8(0xFF); // All relays off (active low)
+    // Start controlling the heater
+    heating_init();
+    dispense_init();
+    pilot_on();
     lcd.clear();
-    lcd.print(F("Sensors       # Exit"));
+    lcd.print(F("              # Exit"));
     lcd.setCursor(0, 1);
     lcd.print(F("ADC0"));
-    loop_function = diags_sensor_loop;
+    loop_function = diags_heating_loop;
 }
 
-void diags_sensor_loop()
+void diags_heating_loop()
 {
     // Show raw ADC and temperature (one decimal)
-    for (uint8_t row = 0; row < 2; ++row) {
-        lcd.setCursor(0, row + 1);
-        lcd.print(F("ADC"));
-        lcd.print(row);
-        uint16_t a = analog_mean(row, 1024);
-        lcd.setCursor(5, row + 1);
-        lcd_print_right_justify(a, 5);
-        // Print temperature in Celsius
-        float c = adc_to_celsius(a);
-        lcd.setCursor(12, row + 1);
-        if (c < -9.95f) {
-            lcd.print(F("---"));
-        } else if (c > 99.95f) {
-            lcd.print(F("+++"));
-        } else {
-            // Print with one decimal place
-            int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));
-            int16_t whole = temp_int / 10;
-            int16_t frac = abs(temp_int % 10);
-            lcd.print(whole);
-            lcd.print(F("."));
-            lcd.print(frac);
-            lcd.print(F("C"));
-        }
+    print_temperature(0);
+    auto relayState = relays.valueOut();
+    //Serial.print(F("R:"));
+    //Serial.println(relayState, BIN);
+    // Control the heater
+    if (heating_loop(relayState & (1<<(Relays::HeaterL))) == LOW)
+    {
+        // Heater ON (active low)
+        relayState &= ~((1 << Relays::HeaterL) | (1 << Relays::HeaterN));
     }
+    else
+    {
+        // Heater OFF
+        relayState |= (1 << Relays::HeaterL) | (1 << Relays::HeaterN);
+    }
+    // Wash: Dispense soap
+    // Problem: It takes awhile to get our first analog sample. In that time the heater
+    // is off.  The dispenser thinks the water is warm.
+    if (dispense_loop(relayState) == LOW)
+    {
+        relayState &= ~(1 << Relays::Dispenser);  // On
+    }
+    else
+    {
+        relayState |= (1 << Relays::Dispenser);  // Off
+    }
+    relays.write8(relayState);
+
+    lcd.setCursor(0, 0);
+    lcd.print(relayState & (1<<(Relays::HeaterL)) ? 'h' : 'H');
+    lcd.print(relayState & (1<<(Relays::Dispenser)) ? 'd' : 'D');
+
     // Service keypad
     char const customKey = customKeypad.getKey();
     if (customKey == '#')
     {
         // Exit this mode
+        relays.write8(0xFF); // All relays off (active low)
+        pilot_off();
         diags_enter();
     }
 }
@@ -148,26 +162,7 @@ void diags_relay_loop()
 {
     // Show raw ADC and temperature (one decimal)
     for (uint8_t row = 0; row < 2; ++row) {
-        uint16_t a = analog_mean(row, 1024);
-        lcd.setCursor(5, row + 1);
-        lcd_print_right_justify(a, 5);
-        // Print temperature in Celsius
-        float c = adc_to_celsius(a);
-        lcd.setCursor(12, row + 1);
-        if (c < -9.95f) {
-            lcd.print(F("---"));
-        } else if (c > 99.95f) {
-            lcd.print(F("+++"));
-        } else {
-            // Print with one decimal place
-            int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));
-            int16_t whole = temp_int / 10;
-            int16_t frac = abs(temp_int % 10);
-            lcd.print(whole);
-            lcd.print(F("."));
-            lcd.print(frac);
-            lcd.print(F("C"));
-        }
+        print_temperature(row);
     }
     // Cycle relays
     static uint8_t current_relay = 0;
@@ -200,15 +195,33 @@ void diags_relay_loop()
     }
 }
 
-uint16_t analog_mean(uint8_t const pin, uint16_t const samples) {
-    // Given 32-bit accumulator, we bound samples such that
-    // 1024 x samples < 2^32
-    // log(1024) + log(samples) < 32
-    // log(samples) < 22
-    // samples < 4194304
-    uint32_t sum = 0;
-    for (uint16_t i = 0; i < samples; i++) {
-        sum += analogRead(pin);
+// Show raw ADC and temperature (one decimal)
+void print_temperature(uint8_t const row)
+{
+    uint16_t a;
+    if (!calc_analog_mean(row, a)) {
+        return;
     }
-    return static_cast<uint16_t>(sum / samples);
+    lcd.setCursor(0, row + 1);
+    lcd.print(F("ADC"));
+    lcd.print(row);
+    lcd.setCursor(5, row + 1);
+    lcd_print_right_justify(a, 5);
+    // Print temperature in Celsius
+    float c = adc_to_celsius(a);
+    lcd.setCursor(12, row + 1);
+    if (c < -9.95f) {
+        lcd.print(F("---"));
+    } else if (c > 99.95f) {
+        lcd.print(F("+++"));
+    } else {
+        // Print with one decimal place
+        int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));
+        int16_t whole = temp_int / 10;
+        int16_t frac = abs(temp_int % 10);
+        lcd.print(whole);
+        lcd.print(F("."));
+        lcd.print(frac);
+        lcd.print(F("C"));
+    }
 }

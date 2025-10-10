@@ -4,14 +4,18 @@
 #include <Arduino.h>
 #include <math.h>
 
-struct HeatingData
+#define ADC_POT_MODE 1
+
+struct AnalogStats
 {
-    uint32_t temp_n;
-    uint32_t temp_mean;
-} h_data;
+    uint32_t n; // Number of samples accumulated
+    uint32_t accum[2];
+    uint16_t mean[2];
+};
+AnalogStats analog_data;
 
 // Samples per averaged window (power of two makes shifts possible)
-constexpr uint32_t SAMPLE_COUNT = 1024u;
+constexpr uint32_t SAMPLE_COUNT = 64u;
 // Build-time checks and documentation
 // -------------------------------
 // We want several properties guaranteed at compile time:
@@ -30,6 +34,42 @@ static_assert((SAMPLE_COUNT & (SAMPLE_COUNT - 1)) == 0, "SAMPLE_COUNT must be a 
 //   adjust SERIES_RESISTOR accordingly.
 constexpr double ADC_MAX = 1023.0;
 constexpr double VREF = 5.0; // ADC reference voltage (set to Vcc by default)
+static_assert(ADC_MAX > 0.0, "ADC_MAX must be positive");
+static_assert(VREF > 0.0, "VREF must be positive");
+
+// Temperature control thresholds (degrees Celsius)
+constexpr double TEMP_THRESHOLD_C = 60.0; // target water temp, adjust as needed
+constexpr double TEMP_HYSTERESIS_C = 2.0; // degrees C
+static_assert(TEMP_HYSTERESIS_C >= 0.0 && TEMP_HYSTERESIS_C < 20.0, "TEMP_HYSTERESIS_C out of expected range");
+static_assert(TEMP_THRESHOLD_C > -40.0 && TEMP_THRESHOLD_C < 130.0, "TEMP_THRESHOLD_C out of expected range");
+static_assert(TEMP_HYSTERESIS_C < TEMP_THRESHOLD_C + 273.15, "Hysteresis must be less than threshold range");
+
+#ifdef ADC_POT_MODE
+
+// POT mode: linear mapping 0 -> -10°C, ADC_MAX -> 110°C
+constexpr double ADC_POT_TEMP_MIN_C = -10.0;
+constexpr double ADC_POT_TEMP_MAX_C = 110.0;
+static constexpr double ADC_POT_TEMP_RANGE = (ADC_POT_TEMP_MAX_C - ADC_POT_TEMP_MIN_C);
+
+// Linear constexpr inverse: temp -> ADC (for compile-time thresholds)
+static constexpr uint16_t temp_to_adc_linear(double tempC) {
+    return (tempC <= ADC_POT_TEMP_MIN_C) ? 0
+         : (tempC >= ADC_POT_TEMP_MAX_C) ? static_cast<uint16_t>(ADC_MAX)
+         : static_cast<uint16_t>(((tempC - ADC_POT_TEMP_MIN_C) / ADC_POT_TEMP_RANGE) * ADC_MAX + 0.5);
+}
+
+static constexpr uint16_t adc_off_threshold = temp_to_adc_linear(TEMP_THRESHOLD_C + TEMP_HYSTERESIS_C);
+static constexpr uint16_t adc_on_threshold  = temp_to_adc_linear(TEMP_THRESHOLD_C - TEMP_HYSTERESIS_C);
+
+// POT_MODE: linear mapping ADC(0..ADC_MAX) -> Celsius (-10..110)
+float adc_to_celsius(uint16_t adc)
+{
+    double a = (adc > static_cast<uint16_t>(ADC_MAX)) ? ADC_MAX : static_cast<double>(adc);
+    double frac = a / ADC_MAX;
+    return static_cast<float>(ADC_POT_TEMP_MIN_C + frac * ADC_POT_TEMP_RANGE);
+}
+
+#else
 
 // Change these values to match your thermistor and series resistor.
 constexpr double SERIES_RESISTOR = 10000.0; // ohms
@@ -37,19 +77,10 @@ constexpr double THERMISTOR_R0 = 10000.0;   // ohms @ T0
 constexpr double THERMISTOR_BETA = 3950.0;  // Beta parameter
 constexpr double THERMISTOR_T0_K = 25.0 + 273.15;
 
-// Temperature control thresholds (degrees Celsius)
-constexpr double TEMP_THRESHOLD_C = 60.0; // target water temp, adjust as needed
-constexpr double TEMP_HYSTERESIS_C = 2.0; // degrees C
-
 // Static sanity checks
-static_assert(ADC_MAX > 0.0, "ADC_MAX must be positive");
-static_assert(VREF > 0.0, "VREF must be positive");
 static_assert(SERIES_RESISTOR > 0.0, "SERIES_RESISTOR must be positive");
 static_assert(THERMISTOR_R0 > 0.0, "THERMISTOR_R0 must be positive");
 static_assert(THERMISTOR_BETA > 0.0 && THERMISTOR_BETA < 20000.0, "THERMISTOR_BETA out of expected range");
-static_assert(TEMP_HYSTERESIS_C >= 0.0 && TEMP_HYSTERESIS_C < 20.0, "TEMP_HYSTERESIS_C out of expected range");
-static_assert(TEMP_THRESHOLD_C > -40.0 && TEMP_THRESHOLD_C < 130.0, "TEMP_THRESHOLD_C out of expected range");
-static_assert(TEMP_HYSTERESIS_C < TEMP_THRESHOLD_C + 273.15, "Hysteresis must be less than threshold range");
 
 // Compute ADC thresholds at compile time using constexpr helpers so the MCU
 // doesn't pay for expensive math at runtime and thresholds live in flash.
@@ -72,24 +103,11 @@ static constexpr uint16_t temp_to_adc_constexpr(double tempC) {
 }
 
 // Compile-time ADC thresholds
-static constexpr uint16_t adc_off_threshold = temp_to_adc_constexpr(TEMP_THRESHOLD_C + TEMP_HYSTERESIS_C);
-static constexpr uint16_t adc_on_threshold  = temp_to_adc_constexpr(TEMP_THRESHOLD_C - TEMP_HYSTERESIS_C);
-
-// Dispense time (ms)
-constexpr uint32_t DISPENSE_DURATION_MS = 20000;
-
-enum class DispenseState {
-    Heating,
-    Dispensing,
-    Done
-};
+constexpr double POT_TEMP_MAX = 100.0; // pot 0 -> 0°C, pot 1023 -> 100°C
+static constexpr uint16_t adc_off_threshold = static_cast<uint16_t>(((TEMP_THRESHOLD_C + TEMP_HYSTERESIS_C) / POT_TEMP_MAX) * ADC_MAX + 0.5);
+static constexpr uint16_t adc_on_threshold  = static_cast<uint16_t>(((TEMP_THRESHOLD_C - TEMP_HYSTERESIS_C) / POT_TEMP_MAX) * ADC_MAX + 0.5);
 
 
-struct DispenseData
-{
-    DispenseState state; 
-    uint32_t end_time;
-} dispense_data;
 
 // Convert averaged ADC reading (0..1023) to thermistor resistance (ohms)
 // From divider: Vout = Vref * Rth/(Rseries + Rth) => Rth = Rseries * (Vref/Vout - 1).
@@ -129,6 +147,24 @@ float adc_to_celsius(uint16_t adc)
     return resistance_to_celsius(r);
 }
 
+#endif
+
+// Dispense time (ms)
+constexpr uint32_t DISPENSE_DURATION_MS = 20000;
+
+enum class DispenseState {
+    Heating,
+    Dispensing,
+    Done
+};
+
+
+struct DispenseData
+{
+    DispenseState state; 
+    uint32_t end_time;
+} dispense_data;
+
 // Convert Celsius to ADC (inverse of adc_to_celsius path):
 // Given target temperature in C, compute the thermistor resistance via the Beta equation
 // and return the expected ADC reading for the voltage divider.
@@ -137,32 +173,39 @@ float adc_to_celsius(uint16_t adc)
 void heating_init()
 {
     // Reset rolling average
-    h_data.temp_n = 0;
-    h_data.temp_mean = 0;
-    relays.write(Relays::HeaterL, HIGH);
-    relays.write(Relays::HeaterN, HIGH);
+    analog_data.n = 0;
+    memset(analog_data.accum, 0, sizeof(analog_data.accum));
+    memset(analog_data.mean, 0, sizeof(analog_data.mean));
 }
 
 uint8_t heating_loop(uint8_t heaterState)
 {
-    if (h_data.temp_n < SAMPLE_COUNT)
+    if (analog_data.n < SAMPLE_COUNT)
     {
         // Accumulate exactly SAMPLE_COUNT samples then evaluate.
-        h_data.temp_mean += analogRead(A0);
-        h_data.temp_n++;
+        for (uint8_t i = 0; i < 2; ++i)
+            analog_data.accum[i] += analogRead(i==0 ? A0 : A1);
+        analog_data.n++;
         return heaterState; // no change yet
     }
 
     // We have SAMPLE_COUNT samples accumulated.
-    uint16_t adc_mean = static_cast<uint16_t>(h_data.temp_mean / SAMPLE_COUNT);
+    for (uint8_t i = 0; i < 2; ++i)
+    {
+        analog_data.mean[i] = static_cast<uint16_t>(analog_data.accum[i] / SAMPLE_COUNT);
+    }
+    auto const& temperature = analog_data.mean[0];
     // Reset accumulator for next window
-    h_data.temp_n = 0;
-    h_data.temp_mean = 0;
+    analog_data.n = 0;
+    memset(analog_data.accum, 0, sizeof(analog_data.accum));
 
+    Serial.print(F("ADC:"));
+    Serial.print(temperature);
     // Safety: if ADC is 0 (short to GND) or saturated at ADC full-scale (open circuit),
     // treat as sensor fault and force heater OFF to avoid unsafe operation.
-    if (adc_mean == 0u || adc_mean == 1023u)
+    if (temperature == 0u || temperature == 1023u)
     {
+        Serial.println(" fsafe");
         return HIGH; // turn off
     }
 
@@ -171,15 +214,25 @@ uint8_t heating_loop(uint8_t heaterState)
     {
         // Heater currently ON (active low). Turn OFF when measured ADC indicates temperature
         // has risen above threshold + hysteresis (i.e. ADC has dropped below adc_off_threshold).
-        if (adc_mean <= adc_off_threshold)
+        if (temperature <= adc_off_threshold)
+        {
+            Serial.println(" turning on");
+            // Serial.println(F("Heater off"));
             return HIGH; // turn off
+        }
+        Serial.println(" stay off");
     }
     else
     {
         // Heater currently OFF. Turn ON when ADC indicates temperature has fallen below threshold - hysteresis
         // (i.e. ADC is above adc_on_threshold because ADC increases as temperature decreases).
-        if (adc_mean >= adc_on_threshold)
+        if (temperature >= adc_on_threshold)
+        {
+            Serial.println(" turning off");
+            // Serial.println(F("Heater off"));
             return LOW; // turn on
+        }
+        Serial.println(" stay on");
     }
     return heaterState;  // No change
 }
@@ -187,21 +240,23 @@ uint8_t heating_loop(uint8_t heaterState)
 void dispense_init()
 {
     dispense_data.state = DispenseState::Heating;
-    relays.write(Relays::Dispenser, HIGH);
 }
 
-uint8_t dispense_loop(uint8_t relayState)
+uint8_t dispense_loop(uint16_t temperature)
 {
     if (dispense_data.state == DispenseState::Heating)
     {
         // Waiting for water to heat
-        if ((relayState & (1 << Relays::HeaterL)) == 0)
+        //// When heater shuts off, we start dispensing
+        //if ((relayState & (1 << Relays::HeaterL)) != LOW)
+        if (temperature <= adc_off_threshold)
         {
             // Dispense
             dispense_data.state = DispenseState::Dispensing;
             dispense_data.end_time = millis() + DISPENSE_DURATION_MS;
-            relayState &= ~(1<<Relays::Dispenser); // Turn on
+            Serial.println(F("Dispense started"));
         }
+        return HIGH;  // Off
     }
     else if (dispense_data.state == DispenseState::Dispensing)
     {
@@ -210,8 +265,24 @@ uint8_t dispense_loop(uint8_t relayState)
         {
             // Finish dispensing
             dispense_data.state = DispenseState::Done;
-            relayState |= (1<<Relays::Dispenser); // Turn off
+            Serial.println(F("Dispense finished"));
         }
+        return LOW;  // On
     }
-    return relayState;
+    else // DispenseState::Done
+    {
+        return HIGH;  // Off
+    }
+}
+
+bool calc_analog_mean(uint8_t idx, uint16_t& analog_mean)
+{
+    if (idx >= 2)
+        return false; // invalid sensor
+    // if (analog_data.n != SAMPLE_COUNT)
+    //     return false;
+    // // We have SAMPLE_COUNT samples accumulated.
+    // analog_mean = static_cast<uint16_t>(analog_data.accum[idx] / SAMPLE_COUNT);
+    analog_mean = analog_data.mean[idx];
+    return true;
 }
