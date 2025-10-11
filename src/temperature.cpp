@@ -22,11 +22,11 @@ struct AnalogStats {
     uint32_t acc = 0;
     uint16_t mean = 0;
     uint8_t n = 0;
+    bool has_update = false;
+    float celsius = NAN;
 };
 
 static AnalogStats g_stats;
-static bool g_has_update = false;
-static float g_celsius = NAN;
 
 // Forward declares of helpers
 static float resistance_to_celsius(float r);
@@ -36,8 +36,8 @@ void temperature_init() {
     g_stats.acc = 0;
     g_stats.mean = 0;
     g_stats.n = 0;
-    g_has_update = false;
-    g_celsius = NAN;
+    g_stats.has_update = false;
+    g_stats.celsius = NAN;
 }
 
 void temperature_tick() {
@@ -53,27 +53,27 @@ void temperature_tick() {
         g_stats.n = 0;
         // compute temperature if valid
         if (g_stats.mean == 0 || g_stats.mean >= (uint16_t)ADC_MAX_F) {
-            g_celsius = NAN; // sensor fault (open/short)
+            g_stats.celsius = NAN; // sensor fault (open/short)
         } else {
             float r = adc_to_resistance(g_stats.mean);
-            g_celsius = resistance_to_celsius(r);
+            g_stats.celsius = resistance_to_celsius(r);
         }
-        g_has_update = true;
+        g_stats.has_update = true;
     }
 }
 
 bool temperature_has_update() {
-    return g_has_update;
+    return g_stats.has_update;
 }
 
 bool temperature_get_adc_mean(uint16_t &out_adc) {
-    if (!g_has_update) return false;
+    if (!g_stats.has_update) return false;
     out_adc = g_stats.mean;
     return true;
 }
 
 float temperature_get_celsius() {
-    return g_celsius;
+    return g_stats.celsius;
 }
 
 float temperature_adc_to_celsius(uint16_t adc) {
