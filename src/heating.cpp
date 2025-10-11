@@ -5,6 +5,8 @@
 #include "temperature.h"
 #include <Arduino.h>
 
+static constexpr unsigned long DISPENSE_DURATION_MS = 5000ul; // assumption: 5s dispense
+
 uint8_t heating_loop(uint8_t heaterState)
 {
     // Use ADC thresholds from temperature module and the averaged ADC value.
@@ -33,7 +35,6 @@ uint8_t heating_loop(uint8_t heaterState)
 
 // Dispense state machine restored here.  We keep the state local to this
 // compilation unit to avoid touching global headers.
-static constexpr unsigned long DISPENSE_DURATION_MS = 5000ul; // assumption: 5s dispense
 
 enum class DispenseState : uint8_t {
     Heating,

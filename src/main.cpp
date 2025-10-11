@@ -163,15 +163,15 @@ static void mainmenu_select(uint8_t menu_idx)
     //else Delay wash 1/4/8h
     else if (menu_idx == 3)
     {
-        delay_cycle_enter(1ul*1000*10, 2, 1);
+        delay_cycle_enter(1*60, 2, 1);
     }
     else if (menu_idx == 4)
     {
-        delay_cycle_enter(4ul*1000*10, 2, 1);
+        delay_cycle_enter(4*60, 2, 1);
     }
     else if (menu_idx == 5)
     {
-        delay_cycle_enter(8ul*1000*10, 2, 1);
+        delay_cycle_enter(8*60, 2, 1);
     }
     else if (menu_idx == 6)
     {

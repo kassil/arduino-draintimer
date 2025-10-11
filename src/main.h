@@ -18,8 +18,8 @@ extern PCF8574 relays;
 // Active low
 enum Relays {
     FillSolenoid,
-    Dispenser,
     WashMotor,
+    Dispenser,
     DrainMotor,
     HeaterL,
     HeaterN,

@@ -2,6 +2,7 @@
 #include "heating.h"
 #include "main.h"
 #include "utils.h"
+#include "temperature.h"
 #include <Arduino.h>
 #include <Keypad_I2C.h>
 #include <LiquidCrystal_I2C.h>
@@ -35,7 +36,7 @@ static void pump_loop();
 static void drain_loop();
 static void cycle_complete_loop();
 static void paused_loop();
-static void print_remain(unsigned long const& now);
+static void print_remain();
 
 // Enter the wash/rinse/drain mode
 // Set substate_loop and redraw the LCD.
@@ -50,24 +51,31 @@ static void print_stage(Stage stage);
 
 static void turn_all_off();
 
-constexpr unsigned long FILL_TIME_MS = 5000;
+static constexpr unsigned long FILL_TIME_MS = 10000;
+static constexpr unsigned long WASH_TIME_MS = 20000;
+static constexpr unsigned long RINSE_TIME_MS = 8000;
+static constexpr unsigned long DRAIN_TIME_MS = 7000;
+char const relayShortLabel[6] PROGMEM = {'F','W','S','D','L','N'};
 
-void delay_cycle_enter(unsigned long delay, uint8_t n_soap_, uint8_t n_rinse_)
+static uint32_t last_display_time;
+
+void delay_cycle_enter(uint16_t delay_minutes, uint8_t n_soap_, uint8_t n_rinse_)
 {
     Serial.print(F("Start D:"));
-    Serial.print(delay); Serial.print(F(", W:"));
+    Serial.print(delay_minutes); Serial.print(F(" mins, W:"));
     Serial.print(n_soap_ ); Serial.print(F(", R:"));
     Serial.print(n_rinse_); Serial.println();
     n_soap = n_soap_;
     n_rinse = n_rinse_;
     i_cycle = 1;
-    if (delay)
+    if (delay_minutes > 0)
     {
         // Turn all off?
         lcd.clear();
         lcd.print(F("Delay Start"));
         substate_loop = delay_loop;
-        end_millis = millis() + delay;
+        end_millis = millis() + delay_minutes * 60ul * 1000ul;
+        last_display_time = millis() - 500; // Force display update
     }
     else
     {
@@ -87,8 +95,8 @@ void delay_loop()
     }
     else
     {
+        // Delay washing
         turn_all_off();
-        print_remain(now);
     }
 }
 
@@ -96,6 +104,7 @@ void cycle_enter()
 {
     // Ensure pilot is on, then enable the other relays.
     pilot_on();
+    last_display_time = millis() - 500; // Force display update
     if (n_soap)
     {
         wash_enter();
@@ -124,8 +133,30 @@ void cycle_loop()
         Serial.print(F("Paused"));
         return;
     }
+
     // Run the cycle
     substate_loop();
+
+    // Display relay states and temperature
+    lcd.setCursor(0, 3);
+    uint8_t const relayState = relays.valueOut();
+    for(uint8_t i = 0; i < 6; ++i) {
+        char const ch = (relayState & (1<<i)) ? ' ' : static_cast<char>(pgm_read_byte(&relayShortLabel[i]));
+        lcd.write(ch);
+    }
+
+    uint32_t const now = millis();
+    if ((now - last_display_time) >= 500UL) {
+        last_display_time = now;
+        // Print time remaining
+        print_remain();
+        // Print temperature beside time
+        uint16_t adc;
+        if (temperature_get_adc_mean(adc)) {
+            float const temp_c = temperature_adc_to_celsius(adc);
+            lcd_print_temperature(temp_c);
+        }
+    }
 }
 
 void paused_loop()
@@ -139,7 +170,6 @@ void paused_loop()
         lcd.print(F("                    "));
         loop_function = cycle_loop;
         // Pilot on again
-        // TODO Turn on relays
         pilot_on();
     }
     else if (customKey == '#')
@@ -193,13 +223,13 @@ void fill_loop()
             // LCD
             print_cycle_wash();
             dispense_init();  // Enable dispenser
-            end_millis = now + 6000;
+            end_millis = now + WASH_TIME_MS;
         }
         else
         {
             // LCD
             print_cycle_rinse();
-            end_millis = now + 4000;
+            end_millis = now + RINSE_TIME_MS;
         }
         substate_loop = pump_loop;
         // LCD
@@ -209,8 +239,6 @@ void fill_loop()
     {
         // Fill solenoid
         relays.write8(~(1<<Relays::FillSolenoid));
-        // LCD
-        print_remain(now);
     }
 }
 
@@ -219,7 +247,7 @@ void pump_loop()
     const auto now = millis();
     if (now >= end_millis)
     {
-        drain_enter();
+        drain_enter();  // Finished
     }
     else
     {
@@ -250,7 +278,6 @@ void pump_loop()
             }
         }
         relays.write8(relayState);
-        print_remain(now);
     }
 }
 
@@ -274,7 +301,7 @@ void drain_enter()
     }
     print_stage(Stage::Drain);
     const auto now = millis();
-    end_millis = now + 2500;
+    end_millis = now + DRAIN_TIME_MS;
     substate_loop = drain_loop;
 }
 
@@ -308,7 +335,6 @@ void drain_loop()
     {
         // Drain
         relays.write8(~(1<<Relays::DrainMotor));
-        print_remain(now);
     }
 }
 
@@ -323,12 +349,23 @@ void cycle_complete_loop()
     }
 }
 
-void print_remain(unsigned long const& now)
+void print_remain()
 {
-    auto remain = static_cast<unsigned short>((end_millis - now)/100);
-    lcd.setCursor(7, 2);
-    lcd_print_right_justify(remain, 4);
-    lcd.print(F("s"));
+    uint32_t now = millis();
+    auto remain_ms = static_cast<uint32_t>(end_millis - now);
+    auto remain_s = static_cast<uint16_t>(remain_ms / 1000);
+    auto remain_f = static_cast<uint16_t>(remain_ms % 1000);
+    lcd.setCursor(6, 2);
+    auto mins = remain_s / 60;
+    auto secs = remain_s % 60;
+    auto tenths = remain_f / 100;
+    if (mins < 10) lcd.print(' ');
+    lcd.print(mins);
+    lcd.print(':');
+    if (secs < 10) lcd.print('0');
+    lcd.print(secs);
+    lcd.print('.');
+    lcd.print(tenths, 1);
 }
 
 void print_cycle_wash()

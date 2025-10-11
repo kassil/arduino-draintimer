@@ -31,10 +31,10 @@ static const char *const menu_labels[menu_n_items] PROGMEM = {
     menu_labels_3,
 };
 constexpr auto relay_n = 6;
-static const char relay_lbl_0[] PROGMEM = "Fill Solenoid";
-static const char relay_lbl_1[] PROGMEM = "Dispenser";
-static const char relay_lbl_2[] PROGMEM = "Wash Motor";
-static const char relay_lbl_3[] PROGMEM = "Drain Motor";
+static const char relay_lbl_0[] PROGMEM = "Fill";
+static const char relay_lbl_1[] PROGMEM = "Wash";
+static const char relay_lbl_2[] PROGMEM = "Soap";
+static const char relay_lbl_3[] PROGMEM = "Drain";
 static const char relay_lbl_4[] PROGMEM = "Heater L";
 static const char relay_lbl_5[] PROGMEM = "Heater N";
 static const char *const relay_lbls[relay_n] PROGMEM = {
@@ -104,7 +104,7 @@ void diags_heating_loop()
 {
     // Show raw ADC and temperature (one decimal)
     static uint8_t last_time = 0;
-    uint8_t now = millis() / 1000;
+    uint8_t now = millis() / 200;
     if (now != last_time)
     {
         last_time = now;
@@ -137,8 +137,8 @@ void diags_heating_loop()
     relays.write8(relayState);
 
     lcd.setCursor(0, 0);
-    lcd.print(relayState & (1<<(Relays::HeaterL)) ? 'h' : 'H');
-    lcd.print(relayState & (1<<(Relays::Dispenser)) ? 's' : 'S');
+    lcd.print((relayState & (1<<(Relays::HeaterL))) ? 'h' : 'H');
+    lcd.print((relayState & (1<<(Relays::Dispenser))) ? 's' : 'S');
 
     // Service keypad
     char const customKey = customKeypad.getKey();

@@ -91,7 +91,9 @@ void lcd_print_temperature(float c)
         lcd.print('.');
         lcd.print(frac);
     }
-    lcd.print(F("\xDFC")); // Degree symbol
+    ////lcd.print(F("\xDFC")); // Degree symbol
+    lcd.write('\xDF'); // Avoid 8-bit integer
+    lcd.write('C');
 }
 
 void pilot_init()
