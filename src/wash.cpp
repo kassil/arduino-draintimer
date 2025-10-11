@@ -240,8 +240,7 @@ void pump_loop()
         if (i_cycle <= n_soap)
         {
             // Wash: Dispense soap
-            auto temp_adc = analogRead(0); // TODO Average
-            if(dispense_loop(temp_adc) == LOW)
+            if(dispense_loop() == LOW)
             {
                 relayState &= ~(1 << Relays::Dispenser);  // On
             }

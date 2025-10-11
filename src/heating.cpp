@@ -10,7 +10,8 @@ uint8_t heating_loop(uint8_t heaterState)
     // Use ADC thresholds from temperature module and the averaged ADC value.
     uint16_t adc_mean;
     if (!temperature_get_adc_mean(adc_mean)) {
-        // no fresh sample yet, keep previous state
+        // It takes awhile to average the temperature stream.  In that time
+        // the heater and dispenser are off.
         return heaterState;
     }
 
@@ -52,14 +53,21 @@ void dispense_init()
     dispense_data.state = DispenseState::Heating;
 }
 
-uint8_t dispense_loop(uint16_t temperature)
+uint8_t dispense_loop()
 {
     // We use the on threshold because we don't need it to be super hot
     uint16_t const adc_on = temperature_get_adc_on_threshold();
+    uint16_t temp_adc;
+    if (!temperature_get_adc_mean(temp_adc))
+    {
+        // It takes awhile to average the temperature stream.  In that time
+        // the heater and dispenser are off.
+        return HIGH;
+    }
     if (dispense_data.state == DispenseState::Heating)
     {
         // Waiting for water to heat
-        if (temperature <= adc_on)
+        if (temp_adc <= adc_on)
         {
             // start dispensing
             dispense_data.state = DispenseState::Dispensing;

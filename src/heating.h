@@ -12,7 +12,7 @@ void dispense_init();
 
 // Run the dispenser control subsytem.
 // @return LOW for on, HIGH for off
-uint8_t dispense_loop(uint16_t temperature);
+uint8_t dispense_loop();
 
 // Query the last averaged ADC value from the thermistor (0..1023)
 bool calc_analog_mean(uint8_t idx, uint16_t& adc_mean);

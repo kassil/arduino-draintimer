@@ -90,13 +90,13 @@ void diagsmenu_select(uint8_t menu_idx)
 void diags_heating_enter()
 {
     relays.write8(0xFF); // All relays off (active low)
+    pilot_on();
     // Start controlling the heater
     dispense_init();
-    pilot_on();
     lcd.clear();
     lcd.print(F("              # Exit"));
     lcd.setCursor(0, 1);
-    lcd.print(F("ADC0"));
+    lcd.print(F("ADC"));
     loop_function = diags_heating_loop;
 }
 
@@ -126,10 +126,7 @@ void diags_heating_loop()
         relayState |= (1 << Relays::HeaterL) | (1 << Relays::HeaterN);
     }
     // Wash: Dispense soap
-    // Problem: It takes awhile to get our first analog sample. In that time the heater
-    // is off.  The dispenser thinks the water is warm.
-    uint16_t temp_adc;
-    if (temperature_get_adc_mean(temp_adc) && dispense_loop(temp_adc)== LOW)
+    if (dispense_loop()== LOW)
     {
         relayState &= ~(1 << Relays::Dispenser);  // On
     }
@@ -141,7 +138,7 @@ void diags_heating_loop()
 
     lcd.setCursor(0, 0);
     lcd.print(relayState & (1<<(Relays::HeaterL)) ? 'h' : 'H');
-    lcd.print(relayState & (1<<(Relays::Dispenser)) ? 'd' : 'D');
+    lcd.print(relayState & (1<<(Relays::Dispenser)) ? 's' : 'S');
 
     // Service keypad
     char const customKey = customKeypad.getKey();
@@ -206,16 +203,17 @@ void print_temperature()
     if (!temperature_get_adc_mean(adc)) {
         return;
     }
-    lcd.setCursor(0, 1);
-    lcd.print(F("ADC "));
+    lcd.setCursor(4, 1);
     lcd_print_right_justify(adc, 5);
     // Print temperature in Celsius
     float c = temperature_adc_to_celsius(adc);
     lcd.setCursor(12, 1);
-    if (c < -9.95f) {
-        lcd.print(F("---"));
+    if (!isfinite(c)) {
+        lcd.print(F("Err  "));
+    } else if (c < -9.95f) {
+        lcd.print(F("-----"));
     } else if (c > 99.95f) {
-        lcd.print(F("+++"));
+        lcd.print(F("+++++"));
     } else {
         // Print with one decimal place
         int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));

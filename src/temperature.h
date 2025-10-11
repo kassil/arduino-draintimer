@@ -12,7 +12,7 @@ void temperature_tick();
 // Query whether a fresh mean is available (optional).
 bool temperature_has_update();
 
-// Get latest averaged ADC value (0..ADC_MAX). Returns false if not available.
+// Get latest averaged ADC value (0..ADC_MAX_F). Returns false if not available.
 bool temperature_get_adc_mean(uint16_t &out_adc);
 
 // Get latest computed temperature in Celsius. If no valid reading returns NaN.
