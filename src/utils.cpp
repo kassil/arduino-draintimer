@@ -50,6 +50,50 @@ void lcd_print_right_justify(uint16_t value, uint8_t width) {
     lcd.print(value);
 }
 
+void lcd_print_temperature(float c)
+{
+    if (isnan(c)) {
+        lcd.print(F(" NaN "));
+    } else if (isinf(c)) {
+        lcd.print(F("Infin"));
+    } else if (c < -9.95f) {
+        lcd.print(F("---.-"));
+    } else if (c > 99.95f) {
+        lcd.print(F("+++.+"));
+    } else {
+        // Print with one decimal place as a fixed five-character field: "%3d.%1d"
+        int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));
+        int16_t whole = temp_int / 10;
+        uint8_t frac = static_cast<uint8_t>(abs(temp_int % 10));
+
+        // produce three chars for the whole part (width 3, sign included)
+        // Note: these characters must be signed for lcd.print().
+        char w0, w1, w2;
+        int abs_whole = (whole < 0) ? -whole : whole;  //TODO abs() ?
+        char sign = (whole < 0) ? '-' : ' ';
+
+        if (abs_whole >= 10) {
+            // two whole digits
+            w0 = sign;
+            w1 = static_cast<char>('0' + (abs_whole / 10) % 10);
+            w2 = static_cast<char>('0' + (abs_whole % 10));
+        } else {
+            // one whole digit: pad on the left, put sign in middle position if negative
+            w0 = ' ';
+            w1 = sign;
+            w2 = static_cast<char>('0' + abs_whole);
+        }
+
+        // write the fixed-format numeric field "wd0wd1wd2.frac"
+        lcd.print(w0);
+        lcd.print(w1);
+        lcd.print(w2);
+        lcd.print('.');
+        lcd.print(frac);
+    }
+    lcd.print(F("\xDFC")); // Degree symbol
+}
+
 void pilot_init()
 {
     pinMode(PILOT_PIN, OUTPUT);

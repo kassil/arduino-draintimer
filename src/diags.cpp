@@ -206,22 +206,7 @@ void print_temperature()
     lcd.setCursor(4, 1);
     lcd_print_right_justify(adc, 5);
     // Print temperature in Celsius
-    float c = temperature_adc_to_celsius(adc);
+    float temp_c = temperature_adc_to_celsius(adc);
     lcd.setCursor(12, 1);
-    if (!isfinite(c)) {
-        lcd.print(F("Err  "));
-    } else if (c < -9.95f) {
-        lcd.print(F("-----"));
-    } else if (c > 99.95f) {
-        lcd.print(F("+++++"));
-    } else {
-        // Print with one decimal place
-        int16_t temp_int = static_cast<int16_t>(c * 10.0f + (c >= 0.0f ? 0.5f : -0.5f));
-        int16_t whole = temp_int / 10;
-        int16_t frac = abs(temp_int % 10);
-        lcd.print(whole);
-        lcd.print(F("."));
-        lcd.print(frac);
-        lcd.print(F("C"));
-    }
+    lcd_print_temperature(temp_c);
 }
