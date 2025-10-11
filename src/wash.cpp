@@ -201,8 +201,6 @@ void fill_loop()
             print_cycle_rinse();
             end_millis = now + 4000;
         }
-        // Start controlling the heater
-        heating_init();
         substate_loop = pump_loop;
         // LCD
         print_stage(Stage::Pump);
@@ -230,8 +228,8 @@ void pump_loop()
         // Control the heater
         if (heating_loop(relayState & (1<<(Relays::HeaterL))) == LOW)
         {
-            // Heater ON (active low)
-            relayState &= (1 << Relays::HeaterL) | (1 << Relays::HeaterN);
+            // Heater ON (active low) - clear the heater bits (active low)
+            relayState &= ~((1 << Relays::HeaterL) | (1 << Relays::HeaterN));
         }
         else
         {

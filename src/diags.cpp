@@ -3,6 +3,7 @@
 #include "menu.h"
 #include "heating.h"
 #include "utils.h"
+#include "temperature.h"
 #include <Arduino.h>
 #include <Keypad_I2C.h>
 #include <LiquidCrystal_I2C.h>
@@ -16,7 +17,7 @@ static void diags_heating_enter();
 static void diags_heating_loop();
 static void diags_relay_enter();
 static void diags_relay_loop();
-static void print_temperature(uint8_t const row);
+static void print_temperature();
 
 static constexpr byte menu_n_items = 4;
 static const char menu_labels_0[] PROGMEM = "to Main Menu";
@@ -90,7 +91,6 @@ void diags_heating_enter()
 {
     relays.write8(0xFF); // All relays off (active low)
     // Start controlling the heater
-    heating_init();
     dispense_init();
     pilot_on();
     lcd.clear();
@@ -108,7 +108,7 @@ void diags_heating_loop()
     if (now != last_time)
     {
         last_time = now;
-        print_temperature(0);
+        print_temperature();
     }
 
     auto relayState = relays.valueOut();
@@ -128,8 +128,8 @@ void diags_heating_loop()
     // Wash: Dispense soap
     // Problem: It takes awhile to get our first analog sample. In that time the heater
     // is off.  The dispenser thinks the water is warm.
-    uint16_t temp_raw;
-    if (calc_analog_mean(0, temp_raw) && dispense_loop(temp_raw)== LOW)
+    uint16_t temp_adc;
+    if (temperature_get_adc_mean(temp_adc) && dispense_loop(temp_adc)== LOW)
     {
         relayState &= ~(1 << Relays::Dispenser);  // On
     }
@@ -159,19 +159,15 @@ void diags_relay_enter()
     pilot_on();
     lcd.clear();
     lcd.print(F("All Sensors   # Exit"));
-    for (uint8_t row = 0; row < 2; ++row) {
-        lcd.setCursor(0, row + 1);
-        lcd.print(F("ADC"));
-    }
+    // lcd.setCursor(0, 1);
+    // lcd.print(F("ADC"));
     loop_function = diags_relay_loop;
 }
 
 void diags_relay_loop()
 {
-    // Show raw ADC and temperature (one decimal)
-    for (uint8_t row = 0; row < 2; ++row) {
-        print_temperature(row);
-    }
+    // Show raw ADC and temperature
+    print_temperature();
     // Cycle relays
     static uint8_t current_relay = 0;
     static unsigned long last_switch_millis = 0;
@@ -204,20 +200,18 @@ void diags_relay_loop()
 }
 
 // Show raw ADC and temperature (one decimal)
-void print_temperature(uint8_t const row)
+void print_temperature()
 {
     uint16_t adc;
-    if (!calc_analog_mean(row, adc)) {
+    if (!temperature_get_adc_mean(adc)) {
         return;
     }
-    lcd.setCursor(0, row + 1);
-    lcd.print(F("ADC"));
-    lcd.print(row);
-    lcd.setCursor(5, row + 1);
+    lcd.setCursor(0, 1);
+    lcd.print(F("ADC "));
     lcd_print_right_justify(adc, 5);
     // Print temperature in Celsius
-    float c = adc_to_celsius(adc);
-    lcd.setCursor(12, row + 1);
+    float c = temperature_adc_to_celsius(adc);
+    lcd.setCursor(12, 1);
     if (c < -9.95f) {
         lcd.print(F("---"));
     } else if (c > 99.95f) {

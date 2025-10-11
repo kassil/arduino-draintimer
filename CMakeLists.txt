@@ -26,6 +26,7 @@ set(SRC_FILES
     heating.cpp
     main.cpp
     menu.cpp
+    temperature.cpp
     utils.cpp
     wash.cpp
 )

@@ -47,6 +47,11 @@ void faultmenu_loop()
     }
 }
 
+bool faultmenu_is_active()
+{
+    return loop_function == faultmenu_loop;
+}
+
 //#include "faults.h"
 
 // Placeholder for future fault handling code

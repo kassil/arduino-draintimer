@@ -7,6 +7,7 @@
 #include "monitor.h"
 #include "utils.h"
 #include "wash.h"
+#include "temperature.h"
 
 #include <Arduino.h>
 #include <Keypad_I2C.h>
@@ -100,6 +101,9 @@ void setup()
     { /*wait*/
     }
 
+    // initialize temperature sampling
+    temperature_init();
+
     // Enable a one-second watchdog timeout after setup and any blocking waits
     // so the watchdog doesn't reset the MCU while we're waiting for Serial
     // or other startup events.
@@ -121,10 +125,14 @@ void setup()
 
 void loop()
 {
+    // Stop checking errors in fault mode
+    // sample temperature regularly unless we're in the fault menu
+    if (!faultmenu_is_active())
+    {
+        check_relay_error_and_fault();
+        temperature_tick();
+    }
     loop_function();
-    // TODO If we enter the fault menu, we need to disable further checks
-    //if (loop_function != faultmenu_loop) {}
-    check_relay_error_and_fault();
     wdt_reset(); // "feed" the watchdog so it doesn't reset the MCU
 }
 

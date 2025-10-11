@@ -1,10 +1,6 @@
 #pragma once
 #include <stdint.h>
 
-// Set up the heater control loop.
-// Heater control does not actually send hardware commands.
-void heating_init();
-
 // Run the heater control
 // @param the current heater state (LOW = ON, HIGH = OFF)
 // @return new heater state (LOW = ON, HIGH = OFF)
@@ -18,7 +14,5 @@ void dispense_init();
 // @return LOW for on, HIGH for off
 uint8_t dispense_loop(uint16_t temperature);
 
-// Convert a single ADC reading (0..1023) from the thermistor input into Celsius
-float adc_to_celsius(uint16_t adc);
-
+// Query the last averaged ADC value from the thermistor (0..1023)
 bool calc_analog_mean(uint8_t idx, uint16_t& adc_mean);
