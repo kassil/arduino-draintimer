@@ -207,6 +207,6 @@ void print_temperature()
     lcd_print_right_justify(adc, 5, ' ');
     // Print temperature in Celsius
     float temp_c = temperature_adc_to_celsius(adc);
-    lcd.setCursor(12, 1);
+    lcd.setCursor(13, 1);
     lcd_print_temperature(temp_c);
 }

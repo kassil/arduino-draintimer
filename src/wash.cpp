@@ -395,22 +395,21 @@ void print_cycle_rinse()
 void print_stage(Stage stage)
 {
     const __FlashStringHelper* str;
-    if (stage == Stage::Fill) {
-        str = F("Filling");
-    }
-    else if (stage == Stage::Pump) {
+    switch (stage) {
+    case Stage::Fill:
+        str = F("Filling  ");
+        break;
+    case Stage::Pump:
         str = F("Circulate");
-    }
-    else if (stage == Stage::Drain) {
-        str = F("Draining");
-    }
-    else {
-        str = F("?Stage?");
+        break;
+    case Stage::Drain:
+        str = F("Draining ");
+        break;
+    default:
+        str = F("?Stage?  ");
     }
     lcd.setCursor(0, 1);
     lcd.print(str);
-    lcd.setCursor(0, 2);
-    lcd.print(F("Remain "));
 }
 
 static void turn_all_off()
