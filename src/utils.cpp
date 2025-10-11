@@ -32,7 +32,7 @@ void lcd_print_left_justify(uint16_t value, uint8_t width) {
 }
 
 // Print a non-negative integer right-justified in a fixed-width field
-void lcd_print_right_justify(uint16_t value, uint8_t width) {
+void lcd_print_right_justify(uint16_t value, uint8_t width, char padding) {
     // Count digits in the value
     uint16_t tmp = value;
     uint8_t digits = 1;
@@ -43,11 +43,33 @@ void lcd_print_right_justify(uint16_t value, uint8_t width) {
 
     // Print leading spaces if needed
     for (uint8_t i = digits; i < width; i++) {
-        lcd.print(' ');
+        lcd.write(padding);
     }
 
     // Print the number itself
     lcd.print(value);
+}
+
+// Print a two-digit number 0..99 with configurable left padding.
+// width is the total printed width (must be >= 2). pad is the fill character.
+void lcd_print_right_justify_2d(uint8_t value, char pad)
+{
+    if (value >= 100) {
+        // overflow
+        lcd.print(F("++"));
+        return;
+    }
+    if (value < 10) {
+        lcd.print(pad);
+    }
+    else {
+        // print tens (may be zero)
+        uint8_t const tens = value / 10;
+        lcd.write('0' + tens);
+    }
+    // print ones
+    uint8_t const ones = value % 10;
+    lcd.write('0' + ones);
 }
 
 void lcd_print_temperature(float c)

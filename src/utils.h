@@ -2,8 +2,13 @@
 #include <stdint.h>
 
 void lcd_print_left_justify(uint16_t value, uint8_t width);
-void lcd_print_right_justify(uint16_t value, uint8_t width);
+void lcd_print_right_justify(uint16_t value, uint8_t width, char padding);
 void lcd_print_temperature(float temp_c);
+
+// Print a two-digit non-negative number (0..99) with left padding.
+// If value >= 100, prints "??". 'pad' is the padding character used on the left
+// to extend the field to the requested width (width must be >= 2).
+void lcd_print_right_justify_2d(uint8_t value, char pad);
 
 void pilot_init();
 void pilot_off();

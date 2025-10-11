@@ -352,20 +352,26 @@ void cycle_complete_loop()
 void print_remain()
 {
     uint32_t now = millis();
-    auto remain_ms = static_cast<uint32_t>(end_millis - now);
-    auto remain_s = static_cast<uint16_t>(remain_ms / 1000);
-    auto remain_f = static_cast<uint16_t>(remain_ms % 1000);
-    lcd.setCursor(6, 2);
-    auto mins = remain_s / 60;
-    auto secs = remain_s % 60;
-    auto tenths = remain_f / 100;
-    if (mins < 10) lcd.print(' ');
-    lcd.print(mins);
+    uint32_t remain_ms = end_millis - now;
+    // Ignore negative subtraction, since clock wraps around.
+    uint32_t whole_s = remain_ms / 1000ul;
+    auto const hours = static_cast<uint8_t>(whole_s / 3600u);
+    auto const mins  = static_cast<uint8_t>((whole_s / 60u) % 60u);
+    auto const secs  = static_cast<uint8_t>(whole_s % 60u);
+    auto const tenths   = static_cast<uint8_t>((remain_ms % 1000u) / 100u);
+
+    lcd.setCursor(0, 2);
+    // Hours: space-padded to width 2
+    lcd_print_right_justify_2d(hours, ' ');
     lcd.print(':');
-    if (secs < 10) lcd.print('0');
-    lcd.print(secs);
-    lcd.print('.');
-    lcd.print(tenths, 1);
+    // Minutes: zero-padded to 2 digits
+    lcd_print_right_justify_2d(mins, '0');
+    lcd.print(':');
+    // Seconds: zero-padded to 2 digits
+    lcd_print_right_justify_2d(secs, '0');
+    lcd.print(':');
+    // Tenths: zero-padded to 1 digit
+    lcd.write('0' + tenths);
 }
 
 void print_cycle_wash()
