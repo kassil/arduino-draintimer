@@ -2,6 +2,7 @@
 
 #include "main.h"
 #include "diags.h"
+#include "door.h"
 #include "faults.h"
 #include "menu.h"
 #include "monitor.h"

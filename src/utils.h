@@ -10,10 +10,6 @@ void lcd_print_temperature(float temp_c);
 // to extend the field to the requested width (width must be >= 2).
 void lcd_print_right_justify_2d(uint8_t value, char pad);
 
-void pilot_init();
-void pilot_off();
-void pilot_on();
-
 // Check the IO expander for errors. If an error is detected this will
 // disable the pilot and clear the relays for safety then enter the fault
 // menu. This is a best-effort safety hook and should be called frequently

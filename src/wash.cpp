@@ -1,4 +1,5 @@
 #include "wash.h"
+#include "door.h"
 #include "heating.h"
 #include "main.h"
 #include "utils.h"

@@ -1,4 +1,5 @@
 #include "faults.h"
+#include "door.h"
 #include "main.h"
 #include "utils.h"
 #include <Arduino.h>

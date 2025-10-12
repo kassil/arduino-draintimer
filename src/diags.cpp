@@ -1,4 +1,5 @@
 #include "diags.h"
+#include "door.h"
 #include "main.h"
 #include "menu.h"
 #include "heating.h"
