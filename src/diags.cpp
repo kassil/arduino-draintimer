@@ -20,16 +20,18 @@ static void diags_relay_enter();
 static void diags_relay_loop();
 static void print_temperature();
 
-static constexpr byte menu_n_items = 4;
+static constexpr byte menu_n_items = 5;
 static const char menu_labels_0[] PROGMEM = "to Main Menu";
 static const char menu_labels_1[] PROGMEM = "Heating";
 static const char menu_labels_2[] PROGMEM = "Watchdog Test";
 static const char menu_labels_3[] PROGMEM = "Relays Test";
+static const char menu_labels_4[] PROGMEM = "Door Test";
 static const char *const menu_labels[menu_n_items] PROGMEM = {
     menu_labels_0,
     menu_labels_1,
     menu_labels_2,
     menu_labels_3,
+    menu_labels_4,
 };
 constexpr auto relay_n = 6;
 static const char relay_lbl_0[] PROGMEM = "Fill";
@@ -79,6 +81,50 @@ void diagsmenu_select(uint8_t menu_idx)
         // Go into a loop where we cycle relays and display
         // temperature until the user presses '#'.
         diags_relay_enter();
+    }
+    else if (menu_idx == 4)
+    {
+        pilot_off();
+        lcd.clear();
+        lcd.print(F("Door Test     # Exit"));
+        Serial.println(F("Door Test"));
+        lcd.setCursor(0, 1);
+        lcd.print(F("(*) Pilot OFF"));
+        lcd.setCursor(0, 2);
+        lcd.print(F("    Door"));
+        loop_function = []() {
+            // Read door state
+            door_tick();
+            lcd.setCursor(10, 2);
+            if (door_is_open()) {
+                lcd.print(F("OPEN  "));
+            } else {
+                lcd.print(F("CLOSED"));
+            }
+            // Service keypad
+            char const customKey = customKeypad.getKey();
+            if (customKey == '*')
+            {
+                auto const pilot_state = digitalRead(7); //PILOT_PIN);
+                lcd.setCursor(10, 1);
+                if (pilot_state == LOW)
+                {
+                    pilot_off();
+                    lcd.print(F("OFF"));
+                }
+                else
+                {
+                    pilot_on();
+                    lcd.print(F("ON "));
+                }
+            }
+            else if (customKey == '#')
+            {
+                // Exit this mode
+                pilot_off();
+                diags_enter();
+            }
+        };
     }
     else
     {
