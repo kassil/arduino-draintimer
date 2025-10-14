@@ -69,6 +69,7 @@ void delay_cycle_enter(uint16_t delay_minutes, uint8_t n_soap_, uint8_t n_rinse_
     n_soap = n_soap_;
     n_rinse = n_rinse_;
     i_cycle = 1;
+
     if (delay_minutes > 0)
     {
         // Turn all off?
@@ -104,19 +105,62 @@ void delay_loop()
 void cycle_enter()
 {
     // Ensure pilot is on, then enable the other relays.
+    end_millis = millis() + 1000;
+    // Ensure pilot is on, then enable the other relays.
     pilot_on();
     last_display_time = millis() - 500; // Force display update
-    if (n_soap)
+
+    loop_function = cycle_wait_door;
+}
+
+void cycle_wait_door()
+{
+    if (!door_is_open())
     {
-        wash_enter();
+        // Door closed
+        if (n_soap)
+        {
+            wash_enter();
+        }
+        else if (n_rinse)
+        {
+            rinse_enter();
+        }
+        else
+        {
+            drain_enter();
+        }
     }
-    else if (n_rinse)
+    else if (now >= end_millis)
     {
-        rinse_enter();
-    }
-    else
-    {
-        drain_enter();
+        // Wait for door to close
+        auto customKey = customKeypad.getKey();
+        if (customKey == '#')
+        {
+            // Cancel the cycle
+            lcd.clear();
+            lcd.print(F("Cycle cancelled"));
+            lcd.setCursor(0, 1);
+            lcd.print(F("Press *"));
+            loop_function = cycle_complete_loop;
+            Serial.print(F("Cancelled"));
+            // Ensure pilot is turned off when cancelling
+            pilot_off();
+        }
+        else if (customKey == '*')
+        {
+            // Continue the cycle
+            loop_function = cycle_loop;
+            Serial.print(F("Continue"));
+        }
+        else
+        {
+            // Expired: Prompt user
+            lcd.setCursor(0, 2);
+            lcd.print(F("Please Close Door"));
+            lcd.setCursor(0, 3);
+            lcd.print(F("# Cancel  * Continue"));
+        }
     }
 }
 
