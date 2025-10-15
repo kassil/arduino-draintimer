@@ -32,6 +32,8 @@ static uint8_t i_cycle;
 // Periodically call this to service the mode.
 static void delay_loop();
 static void cycle_loop();
+static void cycle_wait_door();
+static void delay_check_door_loop();
 static void fill_loop();
 static void pump_loop();
 static void drain_loop();
@@ -75,13 +77,16 @@ void delay_cycle_enter(uint16_t delay_minutes, uint8_t n_soap_, uint8_t n_rinse_
         // Turn all off?
         lcd.clear();
         lcd.print(F("Delay Start"));
-        substate_loop = delay_loop;
+        // Briefly enable pilot so we can verify door state (debounced)
+        pilot_on();
+        substate_loop = delay_check_door_loop;
         end_millis = millis() + delay_minutes * 60ul * 1000ul;
         last_display_time = millis() - 500; // Force display update
     }
     else
     {
         // No delay
+        // (Turns on pilot again)
         cycle_enter();
     }
     loop_function = cycle_loop;
@@ -89,6 +94,8 @@ void delay_cycle_enter(uint16_t delay_minutes, uint8_t n_soap_, uint8_t n_rinse_
 
 void delay_loop()
 {
+    // keep sampling the door while we're in delay
+    door_tick();
     const auto now = millis();
     if (now >= end_millis)
     {
@@ -100,6 +107,60 @@ void delay_loop()
         // Delay washing
         turn_all_off();
     }
+}
+
+// After briefly turning the pilot on we wait for the door to be closed. If the
+// user cancels (#) we abort the cycle. If the user forces continue (*) we
+// either return to the delay wait state (pilot off) or start immediately if
+// the delay has expired.
+void delay_check_door_loop()
+{
+    // sample door each iteration
+    door_tick();
+
+    // If the door has just become stably closed or is closed now, proceed
+    if (door_was_closed() || door_is_closed()) {
+        // If there's still time remaining before the scheduled start, turn the
+        // pilot off to conserve power and return to the delay wait loop.
+        if (millis() < end_millis) {
+            pilot_off();
+            substate_loop = delay_loop;
+        } else {
+            // no remaining delay, start immediately
+            cycle_enter();
+        }
+        return;
+    }
+
+    // allow user input while waiting
+    char const customKey = customKeypad.getKey();
+    if (customKey == '#') {
+        // Cancel the cycle
+        lcd.clear();
+        lcd.print(F("Cycle cancelled"));
+        lcd.setCursor(0, 1);
+        lcd.print(F("Press *"));
+        loop_function = cycle_complete_loop;
+        Serial.print(F("Cancelled"));
+        pilot_off();
+        return;
+    } else if (customKey == '*') {
+        // User forces continue: if there is still a delay, turn pilot off and
+        // return to delay loop; otherwise start immediately.
+        if (millis() < end_millis) {
+            pilot_off();
+            substate_loop = delay_loop;
+        } else {
+            cycle_enter();
+        }
+        return;
+    }
+
+    // Prompt user to close the door if still open
+    lcd.setCursor(0, 2);
+    lcd.print(F("Please Close Door"));
+    lcd.setCursor(0, 3);
+    lcd.print(F("# Cancel  * Continue"));
 }
 
 void cycle_enter()
@@ -115,9 +176,13 @@ void cycle_enter()
 
 void cycle_wait_door()
 {
+    // sample the door while waiting
+    door_tick();
+    const auto now = millis();
+
     if (!door_is_open())
     {
-        // Door closed
+        // Door closed: proceed to the appropriate enter handler
         if (n_soap)
         {
             wash_enter();
@@ -130,10 +195,12 @@ void cycle_wait_door()
         {
             drain_enter();
         }
+        return;
     }
-    else if (now >= end_millis)
+
+    // If we've reached the grace period and the door is still open, prompt
+    if (now >= end_millis)
     {
-        // Wait for door to close
         auto customKey = customKeypad.getKey();
         if (customKey == '#')
         {
@@ -146,21 +213,21 @@ void cycle_wait_door()
             Serial.print(F("Cancelled"));
             // Ensure pilot is turned off when cancelling
             pilot_off();
+            return;
         }
         else if (customKey == '*')
         {
-            // Continue the cycle
+            // User forces continue: move back to normal cycle processing
             loop_function = cycle_loop;
             Serial.print(F("Continue"));
+            return;
         }
-        else
-        {
-            // Expired: Prompt user
-            lcd.setCursor(0, 2);
-            lcd.print(F("Please Close Door"));
-            lcd.setCursor(0, 3);
-            lcd.print(F("# Cancel  * Continue"));
-        }
+
+        // Prompt user to close the door
+        lcd.setCursor(0, 2);
+        lcd.print(F("Please Close Door"));
+        lcd.setCursor(0, 3);
+        lcd.print(F("# Cancel  * Continue"));
     }
 }
 

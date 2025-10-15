@@ -24,6 +24,7 @@ constexpr uint8_t PILOT_SETTLE_MS = 20;
 
 static uint8_t s_history = 0xFF; // start with ones (open)
 static bool s_is_open = true; // debounced state: true == open
+static bool s_was_closed_event = false;
 
 void door_tick()
 {
@@ -35,6 +36,10 @@ void door_tick()
     if (s_history == 0xFF) {
         s_is_open = true;
     } else if (s_history == 0x00) {
+        if (s_is_open) {
+            // transitioned open->closed
+            s_was_closed_event = true;
+        }
         s_is_open = false;
     }
 }
@@ -62,6 +67,7 @@ void pilot_on()
     // To be safe, assume door open and reset debounce.
     s_history = 0xFF;
     s_is_open = true; // assume open until we see consecutive closes
+    s_was_closed_event = false;
 }
 
 void pilot_off()
@@ -71,4 +77,19 @@ void pilot_off()
     // To be safe, assume door open and reset debounce.
     s_history = 0xFF;
     s_is_open = true; // assume open until we see consecutive closes
+    s_was_closed_event = false;
+}
+
+bool door_is_closed()
+{
+    return !s_is_open;
+}
+
+bool door_was_closed()
+{
+    if (s_was_closed_event) {
+        s_was_closed_event = false;
+        return true;
+    }
+    return false;
 }
